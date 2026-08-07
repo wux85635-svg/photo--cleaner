@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PhotoCleaner - 照片清理</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #1a1a1a;
+            --surface-light: #252525;
+            --text: #f0f0f0;
+            --text-secondary: #999;
+            --accent-keep: #34c759;
+            --accent-delete: #ff453a;
+            --accent-warn: #ff9f0a;
+            --border: #333;
+            --safe-bottom: env(safe-area-inset-bottom, 16px);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            position: relative;
+        }
+        .header .title {
+            font-size: 1.1em;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        .header .group-info {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+        }
+        .header .btn-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: var(--surface-light);
+            color: var(--text);
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .main-view {
+            position: relative;
+            height: calc(100vh - 60px - 80px);
+            height: calc(100dvh - 60px - 80px);
+            overflow: hidden;
+        }
+
+        .viewer-container {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            transition: opacity 0.25s;
+        }
+        .viewer-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .viewer-image-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .viewer-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.05s linear;
+            pointer-events: none;
+        }
+        .viewer-image.zoomed {
+            transition: none;
+        }
+
+        .mark-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 28px;
+            border-radius: 30px;
+            font-size: 1em;
+            font-weight: 700;
+            letter-spacing: 1px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.25s;
+            z-index: 20;
+        }
+        .mark-indicator.keep {
+            background: var(--accent-keep);
+            opacity: 0.9;
+        }
+        .mark-indicator.delete {
+            background: var(--accent-delete);
+            opacity: 0.9;
+        }
+        .mark-indicator.undo {
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            opacity: 0.9;
+        }
+
+        .live-photo-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            z-index: 10;
+            display: none;
+            pointer-events: none;
+        }
+        .live-photo-badge.show {
+            display: block;
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--border);
+            z-index: 10;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            background: var(--accent-keep);
+            transition: width 0.3s;
+        }
+
+        .grid-container {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 4px;
+            padding: 4px;
+            background: var(--bg);
+            overflow-y: auto;
+            align-content: start;
+            transition: opacity 0.25s;
+        }
+        .grid-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .grid-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.15s;
+            background: var(--surface);
+        }
+        .grid-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+        .grid-item.marked-keep {
+            border-color: var(--accent-keep);
+        }
+        .grid-item.marked-delete {
+            border-color: var(--accent-delete);
+            opacity: 0.5;
+        }
+        .grid-item .mark-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 0.6em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .grid-item.marked-keep .mark-dot {
+            background: var(--accent-keep);
+        }
+        .grid-item.marked-delete .mark-dot {
+            background: var(--accent-delete);
+            color: #fff;
+        }
+
+        .compare-container {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-wrap: wrap;
+            background: #000;
+            transition: opacity 0.25s;
+            z-index: 30;
+        }
+        .compare-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .compare-item {
+            position: relative;
+            width: 50%;
+            height: 50%;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .compare-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+        .compare-item.selected-best {
+            border: 3px solid var(--accent-keep);
+            box-shadow: inset 0 0 30px rgba(52, 199, 89, 0.2);
+        }
+        .compare-item .compare-label {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 0.7em;
+            pointer-events: none;
+        }
+
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 12px 16px calc(12px + var(--safe-bottom));
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            z-index: 100;
+            gap: 8px;
+        }
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.7em;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 12px;
+            transition: all 0.15s;
+            min-width: 56px;
+        }
+        .action-btn .icon {
+            font-size: 1.6em;
+            transition: transform 0.15s;
+        }
+        .action-btn:active {
+            background: var(--surface-light);
+            transform: scale(0.95);
+        }
+        .action-btn.primary-keep {
+            color: var(--accent-keep);
+        }
+        .action-btn.primary-delete {
+            color: var(--accent-delete);
+        }
+        .action-btn.primary-keep .icon {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .action-btn.primary-delete .icon {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: var(--surface-light);
+            color: var(--text);
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            z-index: 200;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            border: 1px solid var(--border);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 300;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-sheet {
+            background: var(--surface);
+            border-radius: 20px 20px 0 0;
+            padding: 24px 20px calc(24px + var(--safe-bottom));
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        .modal-sheet h3 {
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+        .modal-sheet p {
+            color: var(--text-secondary);
+            font-size: 0.85em;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .modal-sheet .modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+        .modal-sheet button {
+            flex: 1;
+            padding: 14px;
+            border-radius: 14px;
+            border: none;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .modal-sheet .btn-cancel {
+            background: var(--surface-light);
+            color: var(--text);
+        }
+        .modal-sheet .btn-danger {
+            background: var(--accent-delete);
+            color: #fff;
+        }
+
+        .settings-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .settings-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .settings-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px;
+            width: 85%;
+            max-width: 360px;
+        }
+        .settings-card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        .settings-card .option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .settings-card .option:last-child {
+            border-bottom: none;
+        }
+        .settings-card .radio {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .settings-card .radio.active {
+            border-color: var(--accent-keep);
+            background: var(--accent-keep);
+        }
+        .settings-card .radio.active::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+        .upload-zone {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            color: var(--text-secondary);
+            z-index: 5;
+        }
+        .upload-zone .upload-icon {
+            font-size: 4em;
+            opacity: 0.6;
+        }
+        .upload-zone button {
+            padding: 14px 32px;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            background: var(--surface-light);
+            color: var(--text);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="btn-icon" id="btnSettings" title="设置">⚙️</button>
+        <div>
+            <div class="title">PhotoCleaner</div>
+            <div class="group-info" id="groupInfo">准备开始</div>
+        </div>
+        <button class="btn-icon" id="btnGridToggle" title="切换网格">⊞</button>
+    </div>
+
+    <div class="main-view" id="mainView">
+        <div class="viewer-container hidden" id="viewerContainer">
+            <div class="live-photo-badge" id="livePhotoBadge">LIVE</div>
+            <div class="mark-indicator" id="markIndicator"></div>
+            <div class="viewer-image-wrapper" id="viewerWrapper">
+                <img class="viewer-image" id="viewerImage" src="" alt="" draggable="false">
+            </div>
+            <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+        </div>
+        <div class="grid-container hidden" id="gridContainer"></div>
+        <div class="compare-container hidden" id="compareContainer"></div>
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">📁</div>
+            <p>选择照片开始清理</p>
+            <button id="btnUpload">📷 从相册选择</button>
+            <p style="font-size:0.75em;opacity:0.6;">支持 JPG / PNG / HEIC / Live Photo</p>
+        </div>
+    </div>
+
+    <div class="bottom-bar" id="bottomBar">
+        <button class="action-btn" id="btnTrash">
+            <span class="icon">🗑</span>回收站
+        </button>
+        <button class="action-btn primary-delete" id="btnDelete">
+            <span class="icon">✕</span>删除
+        </button>
+        <button class="action-btn" id="btnCompare">
+            <span class="icon">⊡</span>对比
+        </button>
+        <button class="action-btn primary-keep" id="btnKeep">
+            <span class="icon">✓</span>保留
+        </button>
+        <button class="action-btn" id="btnUndo">
+            <span class="icon">↩</span>撤销
+        </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-sheet">
+            <h3>🗑 彻底删除</h3>
+            <p id="confirmText">将永久删除回收站中的照片。</p>
+            <div class="modal-btns">
+                <button class="btn-cancel" id="btnCancelConfirm">取消</button>
+                <button class="btn-danger" id="btnConfirmDelete">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-card">
+            <h3>⚙️ 照片排序</h3>
+            <div class="option" data-mode="smart">
+                <span>🧠 智能分组（推荐）<br><small style="color:#999;">相似照片放一组，组内随机</small></span>
+                <div class="radio active"></div>
+            </div>
+            <div class="option" data-mode="random">
+                <span>🎲 完全随机<br><small style="color:#999;">所有照片打乱，随机分组</small></span>
+                <div class="radio"></div>
+            </div>
+            <button class="btn-cancel" id="btnCloseSettings" style="margin-top:16px;width:100%;padding:14px;border-radius:14px;border:none;background:var(--surface-light);color:var(--text);font-size:1em;font-weight:600;cursor:pointer;">关闭</button>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" multiple accept="image/*,image/heic,image/heif" style="display:none;">
+
+    <script>
+        (function() {
+            const state = {
+                photos: [],
+                groups: [],
+                currentGroupIndex: 0,
+                currentPhotoIndex: 0,
+                viewMode: 'viewer',
+                sortMode: 'smart',
+                compareSelection: [],
+                trashBin: [],
+                scale: 1,
+                isZoomed: false,
+                lastTapTime: 0,
+            };
+
+            const $ = (sel) => document.querySelector(sel);
+            const $$ = (sel) => document.querySelectorAll(sel);
+
+            const viewerContainer = $('#viewerContainer');
+            const viewerImage = $('#viewerImage');
+            const viewerWrapper = $('#viewerWrapper');
+            const markIndicator = $('#markIndicator');
+            const livePhotoBadge = $('#livePhotoBadge');
+            const progressFill = $('#progressFill');
+            const gridContainer = $('#gridContainer');
+            const compareContainer = $('#compareContainer');
+            const uploadZone = $('#uploadZone');
+            const groupInfo = $('#groupInfo');
+            const toast = $('#toast');
+            const fileInput = $('#fileInput');
+            const confirmModal = $('#confirmModal');
+            const settingsModal = $('#settingsModal');
+
+            function generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+            }
+
+            function shuffle(arr) {
+                const a = [...arr];
+                for (let i = a.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [a[i], a[j]] = [a[j], a[i]];
+                }
+                return a;
+            }
+
+            function showToast(msg, duration = 1500) {
+                toast.textContent = msg;
+                toast.classList.add('show');
+                clearTimeout(toast._timeout);
+                toast._timeout = setTimeout(() => toast.classList.remove('show'), duration);
+            }
+
+            function getCurrentPhoto() {
+                const group = state.groups[state.currentGroupIndex];
+                if (!group || group.length === 0) return null;
+                const photoId = group[state.currentPhotoIndex];
+                return state.photos.find(p => p.id === photoId) || null;
+            }
+
+            function updateProgress() {
+                const group = state.groups[state.currentGroupIndex] || [];
+                const total = group.length;
+                const marked = group.filter(id => {
+                    const p = state.photos.find(ph => ph.id === id);
+                    return p && p.status !== 'unmarked';
+                }).length;
+                const pct = total > 0 ? (marked / total) * 100 : 0;
+                progressFill.style.width = pct + '%';
+                groupInfo.textContent =
+                    `第 ${state.currentGroupIndex + 1}/${state.groups.length} 组 · ${marked}/${total} 已处理`;
+            }
+
+            function showMarkIndicator(type) {
+                markIndicator.className = 'mark-indicator ' + type;
+                if (type === 'keep') markIndicator.textContent = '✓ 保留';
+                else if (type === 'delete') markIndicator.textContent = '✕ 删除';
+                else if (type === 'undo') markIndicator.textContent = '↩ 已撤销';
+                setTimeout(() => { markIndicator.className = 'mark-indicator'; }, 600);
+            }
+
+            function buildGroups() {
+                const unmarked = state.photos.filter(p => p.status === 'unmarked');
+                if (unmarked.length === 0) {
+                    state.groups = [];
+                    return;
+                }
+                let groupedPhotos;
+                if (state.sortMode === 'smart') {
+                    const sorted = [...unmarked].sort((a, b) => {
+                        const nameA = a.file.name.replace(/\d+/g, '').toLowerCase();
+                        const nameB = b.file.name.replace(/\d+/g, '').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
+                    const chunks = [];
+                    for (let i = 0; i < sorted.length; i += 10) {
+                        const chunk = sorted.slice(i, i + 10);
+                        chunks.push(shuffle(chunk).map(p => p.id));
+                    }
+                    groupedPhotos = chunks;
+                } else {
+                    const shuffled = shuffle(unmarked).map(p => p.id);
+                    const chunks = [];
+                    for (let i = 0; i < shuffled.length; i += 10) {
+                        chunks.push(shuffled.slice(i, i + 10));
+                    }
+                    groupedPhotos = chunks;
+                }
+                state.groups = groupedPhotos;
+                state.currentGroupIndex = 0;
+                state.currentPhotoIndex = 0;
+            }
+
+            function renderViewer() {
+                const photo = getCurrentPhoto();
+                if (!photo) {
+                    checkGroupComplete();
+                    return;
+                }
+                viewerImage.src = photo.url;
+                viewerImage.style.transform = 'scale(1)';
+                state.scale = 1;
+                state.isZoomed = false;
+                if (photo.isLive) {
+                    livePhotoBadge.classList.add('show');
+                } else {
+                    livePhotoBadge.classList.remove('show');
+                }
+                updateProgress();
+            }
+
+            function renderGrid() {
+                const group = state.groups[state.currentGroupIndex] || [];
+                gridContainer.innerHTML = group.map(id => {
+                    const photo = state.photos.find(p => p.id === id);
+                    if (!photo) return '';
+                    const markClass = photo.status === 'keep' ? 'marked-keep' :
+                        photo.status === 'delete' ? 'marked-delete' : '';
+                    const markDot = photo.status === 'keep' ? '✓' :
+                        photo.status === 'delete' ? '✕' : '';
+                    return `
+                        <div class="grid-item ${markClass}" data-id="${id}">
+                            <img src="${photo.url}" alt="" loading="lazy">
+                            ${markDot ? `<div class="mark-dot">${markDot}</div>` : ''}
+                        </div>`;
+                }).join('');
+                gridContainer.querySelectorAll('.grid-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const id = item.dataset.id;
+                        const idx = group.indexOf(id);
+                        if (idx >= 0) {
+                            state.currentPhotoIndex = idx;
+                            switchToViewer();
+                        }
+                    });
+                });
+                updateProgress();
+            }
+
+            function renderCompare() {
+                const photos = state.compareSelection.map(id => state.photos.find(p => p.id === id))
+                    .filter(Boolean);
+                const items = photos.slice(0, 4);
+                compareContainer.innerHTML = items.map((photo, i) => `
+                    <div class="compare-item" data-id="${photo.id}" data-index="${i}">
+                        <img src="${photo.url}" alt="">
+                        <div class="compare-label">#${i + 1}</div>
+                    </div>
+                `).join('');
+                for (let i = items.length; i < 4; i++) {
+                    compareContainer.innerHTML +=
+                        '<div class="compare-item" style="background:#111;"></div>';
+                }
+                compareContainer.querySelectorAll('.compare-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const photoId = item.dataset.id;
+                        if (!photoId) return;
+                        compareContainer.querySelectorAll('.compare-item').forEach(el => el
+                            .classList.remove('selected-best'));
+                        item.classList.add('selected-best');
+                        state.compareSelection.forEach(id => {
+                            const p = state.photos.find(ph => ph.id === id);
+                            if (p) {
+                                p.status = (id === photoId) ? 'keep' : 'delete';
+                                if (p.status === 'delete' && !state.trashBin.includes(p
+                                        .id)) {
+                                    state.trashBin.push(p.id);
+                                }
+                            }
+                        });
+                        showToast('已标记最佳照片为保留，其余为删除');
+                        setTimeout(() => exitCompare(), 800);
+                    });
+                });
+            }
+
+            function switchToViewer() {
+                state.viewMode = 'viewer';
+                viewerContainer.classList.remove('hidden');
+                gridContainer.classList.add('hidden');
+                compareContainer.classList.add('hidden');
+                uploadZone.classList.add('hidden');
+                $('#btnGridToggle').textContent = '⊞';
+                renderViewer();
+            }
+
+            function switchToGrid() {
+                state.viewMode = 'grid';
+                viewerContainer.classList.add('hidden');
+                gridContainer.classList.remove('hidden');
+                compareContainer.classList.add('hidden');
+                uploadZone.classList.add('hidden');
+                $('#btnGridToggle').textContent = '▣';
+                renderGrid();
+            }
+
+            function enterCompare() {
+                const group = state.groups[state.currentGroupIndex] || [];
+                const unmarked = group.filter(id => {
+                    const p = state.photos.find(ph => ph.id === id);
+                    return p && p.status === 'unmarked';
+                });
+                if (unmarked.length < 2) {
+                    showToast('需要至少 2 张未标记照片才能对比');
+                    return;
+                }
+                state.compareSelection = unmarked.slice(0, 4);
+                state.viewMode = 'compare';
+                viewerContainer.classList.add('hidden');
+                gridContainer.classList.add('hidden');
+                compareContainer.classList.remove('hidden');
+                uploadZone.classList.add('hidden');
+                renderCompare();
+            }
+
+            function exitCompare() {
+                state.compareSelection = [];
+                checkGroupComplete();
+                if (state.groups.length > 0 && state.groups[state.currentGroupIndex]?.length > 0) {
+                    switchToViewer();
+                }
+            }
+
+            function markCurrent(status) {
+                const photo = getCurrentPhoto();
+                if (!photo) return;
+                if (photo.status === status) {
+                    photo.status = 'unmarked';
+                    state.trashBin = state.trashBin.filter(id => id !== photo.id);
+                    showMarkIndicator('undo');
+                } else {
+                    if (photo.status === 'delete') {
+                        state.trashBin = state.trashBin.filter(id => id !== photo.id);
+                    }
+                    photo.status = status;
+                    if (status === 'delete') {
+                        state.trashBin.push(photo.id);
+                    }
+                    showMarkIndicator(status);
+                }
+                const group = state.groups[state.currentGroupIndex];
+                if (state.currentPhotoIndex < group.length - 1) {
+                    state.currentPhotoIndex++;
+                }
+                renderViewer();
+                updateProgress();
+                checkGroupComplete();
+            }
+
+            function undoLast() {
+                const group = state.groups[state.currentGroupIndex] || [];
+                let lastMarked = null;
+                for (let i = group.length - 1; i >= 0; i--) {
+                    const p = state.photos.find(ph => ph.id === group[i]);
+                    if (p && p.status !== 'unmarked') {
+                        lastMarked = p;
+                        break;
+                    }
+                }
+                if (lastMarked) {
+                    lastMarked.status = 'unmarked';
+                    state.trashBin = state.trashBin.filter(id => id !== lastMarked.id);
+                    state.currentPhotoIndex = group.indexOf(lastMarked.id);
+                    showMarkIndicator('undo');
+                    renderViewer();
+                    updateProgress();
+                } else {
+                    showToast('没有可撤销的标记');
+                }
+            }
+
+            function navigate(direction) {
+                const group = state.groups[state.currentGroupIndex];
+                if (!group || group.length === 0) return;
+                if (direction === 'next') {
+                    state.currentPhotoIndex = (state.currentPhotoIndex + 1) % group.length;
+                } else {
+                    state.currentPhotoIndex = (state.currentPhotoIndex - 1 + group.length) % group
+                        .length;
+                }
+                renderViewer();
+                updateProgress();
+            }
+
+            function checkGroupComplete() {
+                const group = state.groups[state.currentGroupIndex] || [];
+                const allMarked = group.every(id => {
+                    const p = state.photos.find(ph => ph.id === id);
+                    return p && p.status !== 'unmarked';
+                });
+                if (allMarked && group.length > 0) {
+                    showToast('🎉 本组处理完成！进入下一组', 2000);
+                    setTimeout(() => nextGroup(), 1200);
+                }
+                const allGroupsDone = state.groups.every(g =>
+                    g.every(id => {
+                        const p = state.photos.find(ph => ph.id === id);
+                        return p && p.status !== 'unmarked';
+                    })
+                );
+                if (allGroupsDone && state.groups.length > 0 && state.trashBin.length > 0) {
+                    setTimeout(() => { showConfirmDelete(); }, 2000);
+                }
+            }
+
+            function nextGroup() {
+                if (state.currentGroupIndex < state.groups.length - 1) {
+                    state.currentGroupIndex++;
+                    state.currentPhotoIndex = 0;
+                    switchToViewer();
+                } else {
+                    if (state.trashBin.length > 0) {
+                        showConfirmDelete();
+                    } else {
+                        showToast('✅ 所有照片已处理完毕！');
+                        groupInfo.textContent = '全部完成';
+                    }
+                }
+            }
+
+            function showConfirmDelete() {
+                const count = state.trashBin.length;
+                if (count === 0) {
+                    showToast('回收站为空');
+                    return;
+                }
+                $('#confirmText').textContent =
+                    `回收站中有 ${count} 张照片。在网页版中，这些照片不会从您的设备中删除（浏览器无法访问系统相册）。在原生 App 版本中，此操作将永久删除这些照片。`;
+                confirmModal.classList.add('show');
+            }
+
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchStartTime = 0;
+            let initialPinchDistance = 0;
+            let initialScale = 1;
+            let longPressTimer = null;
+            let isLongPress = false;
+            let isPinching = false;
+
+            viewerWrapper.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    touchStartTime = Date.now();
+                    isLongPress = false;
+                    const photo = getCurrentPhoto();
+                    if (photo && photo.isLive) {
+                        longPressTimer = setTimeout(() => {
+                            isLongPress = true;
+                            playLivePhoto(photo);
+                        }, 500);
+                    }
+                } else if (e.touches.length === 2) {
+                    isPinching = true;
+                    initialPinchDistance = getPinchDistance(e.touches);
+                    initialScale = state.scale;
+                    clearTimeout(longPressTimer);
+                }
+            }, { passive: false });
+
+            viewerWrapper.addEventListener('touchmove', (e) => {
+                if (isPinching && e.touches.length === 2) {
+                    e.preventDefault();
+                    const currentDistance = getPinchDistance(e.touches);
+                    const newScale = initialScale * (currentDistance / initialPinchDistance);
+                    state.scale = Math.max(1, Math.min(5, newScale));
+                    state.isZoomed = state.scale > 1.05;
+                    viewerImage.style.transform = `scale(${state.scale})`;
+                    viewerImage.classList.toggle('zoomed', state.isZoomed);
+                }
+                if (e.touches.length > 1) {
+                    clearTimeout(longPressTimer);
+                }
+            }, { passive: false });
+
+            viewerWrapper.addEventListener('touchend', (e) => {
+                clearTimeout(longPressTimer);
+                if (isPinching) {
+                    isPinching = false;
+                    if (state.scale < 1.05) {
+                        state.scale = 1;
+                        state.isZoomed = false;
+                        viewerImage.style.transform = 'scale(1)';
+                        viewerImage.classList.remove('zoomed');
+                    }
+                    return;
+                }
+                if (isLongPress) {
+                    stopLivePhoto();
+                    return;
+                }
+                if (state.isZoomed) {
+                    const now = Date.now();
+                    if (now - state.lastTapTime < 300) {
+                        state.scale = 1;
+                        state.isZoomed = false;
+                        viewerImage.style.transform = 'scale(1)';
+                        viewerImage.classList.remove('zoomed');
+                    }
+                    state.lastTapTime = now;
+                    return;
+                }
+                const dx = touchStartX - (e.changedTouches[0]?.clientX || touchStartX);
+                const dy = touchStartY - (e.changedTouches[0]?.clientY || touchStartY);
+                const absDx = Math.abs(dx);
+                const absDy = Math.abs(dy);
+                if (absDy > absDx && absDy > 60) {
+                    if (dy > 0) {
+                        markCurrent('delete');
+                    } else {
+                        markCurrent('keep');
+                    }
+                } else if (absDx > absDy && absDx > 40) {
+                    if (dx > 0) {
+                        navigate('next');
+                    } else {
+                        navigate('prev');
+                    }
+                }
+            });
+
+            function getPinchDistance(touches) {
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            let livePhotoVideo = null;
+
+            function playLivePhoto(photo) {
+                if (photo.videoUrl) {
+                    livePhotoVideo = document.createElement('video');
+                    livePhotoVideo.src = photo.videoUrl;
+                    livePhotoVideo.muted = true;
+                    livePhotoVideo.playsInline = true;
+                    livePhotoVideo.style.cssText =
+                        'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:5;';
+                    livePhotoVideo.loop = true;
+                    viewerWrapper.appendChild(livePhotoVideo);
+                    livePhotoVideo.play().catch(() => {});
+                    livePhotoBadge.textContent = 'LIVE ▶';
+                    livePhotoBadge.style.background = 'rgba(255,69,58,0.7)';
+                }
+            }
+
+            function stopLivePhoto() {
+                if (livePhotoVideo) {
+                    livePhotoVideo.pause();
+                    livePhotoVideo.remove();
+                    livePhotoVideo = null;
+                }
+                livePhotoBadge.textContent = 'LIVE';
+                livePhotoBadge.style.background = 'rgba(0,0,0,0.6)';
+            }
+
+            function importFiles(files) {
+                const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+                    'image/gif'
+                ];
+                const newPhotos = [];
+                Array.from(files).forEach(file => {
+                    if (validTypes.includes(file.type) ||
+                        file.name.match(/\.(jpg|jpeg|png|webp|heic|heif|gif)$/i)) {
+                        const id = generateId();
+                        const url = URL.createObjectURL(file);
+                        const isLive = file.type === 'image/heic' || file.type === 'image/heif';
+                        newPhotos.push({ id, file, url, status: 'unmarked', isLive, videoUrl: null });
+                    }
+                });
+                if (newPhotos.length > 0) {
+                    state.photos.push(...newPhotos);
+                    buildGroups();
+                    uploadZone.classList.add('hidden');
+                    switchToViewer();
+                    showToast(`已导入 ${newPhotos.length} 张照片`);
+                }
+            }
+
+            $('#btnUpload').addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    importFiles(e.target.files);
+                    fileInput.value = '';
+                }
+            });
+
+            $('#btnGridToggle').addEventListener('click', () => {
+                if (state.viewMode === 'viewer') {
+                    switchToGrid();
+                } else {
+                    switchToViewer();
+                }
+            });
+
+            $('#btnKeep').addEventListener('click', () => markCurrent('keep'));
+            $('#btnDelete').addEventListener('click', () => markCurrent('delete'));
+            $('#btnUndo').addEventListener('click', undoLast);
+            $('#btnCompare').addEventListener('click', enterCompare);
+            $('#btnTrash').addEventListener('click', showConfirmDelete);
+
+            $('#btnSettings').addEventListener('click', () => {
+                settingsModal.classList.add('show');
+                $$('#settingsModal .radio').forEach(r => r.classList.remove('active'));
+                if (state.sortMode === 'smart') {
+                    $$('#settingsModal .radio')[0].classList.add('active');
+                } else {
+                    $$('#settingsModal .radio')[1].classList.add('active');
+                }
+            });
+
+            $('#btnCloseSettings').addEventListener('click', () => {
+                settingsModal.classList.remove('show');
+            });
+
+            $$('#settingsModal .option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const mode = option.dataset.mode;
+                    state.sortMode = mode;
+                    $$('#settingsModal .radio').forEach(r => r.classList.remove('active'));
+                    option.querySelector('.radio').classList.add('active');
+                    buildGroups();
+                    state.currentPhotoIndex = 0;
+                    switchToViewer();
+                    settingsModal.classList.remove('show');
+                    showToast(mode === 'smart' ? '已切换为智能分组' : '已切换为完全随机');
+                });
+            });
+
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.remove('show');
+                }
+            });
+
+            $('#btnCancelConfirm').addEventListener('click', () => {
+                confirmModal.classList.remove('show');
+            });
+
+            $('#btnConfirmDelete').addEventListener('click', () => {
+                const deletedIds = [...state.trashBin];
+                deletedIds.forEach(id => {
+                    const p = state.photos.find(ph => ph.id === id);
+                    if (p) { URL.revokeObjectURL(p.url); }
+                });
+                state.photos = state.photos.filter(p => !deletedIds.includes(p.id));
+                state.trashBin = [];
+                state.compareSelection = [];
+                confirmModal.classList.remove('show');
+                buildGroups();
+                state.currentPhotoIndex = 0;
+                if (state.groups.length > 0) {
+                    switchToViewer();
+                    showToast(`已清理 ${deletedIds.length} 张照片`);
+                } else {
+                    viewerContainer.classList.add('hidden');
+                    gridContainer.classList.add('hidden');
+                    uploadZone.classList.remove('hidden');
+                    groupInfo.textContent = '准备开始';
+                    showToast('所有照片已清理完毕 ✨');
+                }
+            });
+
+            confirmModal.addEventListener('click', (e) => {
+                if (e.target === confirmModal) {
+                    confirmModal.classList.remove('show');
+                }
+            });
+
+            document.addEventListener('dragover', (e) => e.preventDefault());
+            document.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0) {
+                    importFiles(e.dataTransfer.files);
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        navigate('prev');
+                        break;
+                    case 'ArrowRight':
+                        navigate('next');
+                        break;
+                    case 'ArrowUp':
+                        markCurrent('keep');
+                        break;
+                    case 'ArrowDown':
+                        markCurrent('delete');
+                        break;
+                    case 'Backspace':
+                    case 'Delete':
+                        markCurrent('delete');
+                        break;
+                    case 'g':
+                        if (state.viewMode === 'viewer') switchToGrid();
+                        else switchToViewer();
+                        break;
+                    case 'c':
+                        enterCompare();
+                        break;
+                    case 'z':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            undoLast();
+                        }
+                        break;
+                }
+            });
+
+            function init() {
+                viewerContainer.classList.add('hidden');
+                gridContainer.classList.add('hidden');
+                uploadZone.classList.remove('hidden');
+                groupInfo.textContent = '准备开始';
+                progressFill.style.width = '0%';
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
