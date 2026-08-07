@@ -199,7 +199,7 @@
             overflow: hidden;
             cursor: pointer;
             border: 2px solid transparent;
-            transition: border-color 0.15s;
+            transition: border-color 0.15s, opacity 0.15s;
             background: var(--surface);
         }
         .grid-item img {
@@ -234,6 +234,7 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            pointer-events: none;
         }
         .grid-item.marked-keep .mark-dot {
             background: var(--accent-keep);
@@ -287,6 +288,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: border-color 0.2s, opacity 0.2s;
         }
         .compare-item img {
             width: 100%;
@@ -861,8 +863,7 @@
                     item.addEventListener('click', () => {
                         const id = item.dataset.id;
                         if (state.viewMode === 'compare-select') {
-                            toggleCompareSelection(id);
-                            renderGrid();
+                            toggleCompareSelection(id, item);
                         } else {
                             const idx = group.indexOf(id);
                             if (idx >= 0) {
@@ -875,7 +876,8 @@
                 updateProgress();
             }
 
-            function toggleCompareSelection(id) {
+            // 修复1：只更新单张卡片，不重新渲染整个网格
+            function toggleCompareSelection(id, gridItemElement) {
                 const idx = state.compareSelection.indexOf(id);
                 if (idx >= 0) {
                     state.compareSelection.splice(idx, 1);
@@ -886,7 +888,40 @@
                     }
                     state.compareSelection.push(id);
                 }
+
+                // 更新已选中的编号
+                updateAllCompareBadges();
                 updateCompareSelectButton();
+            }
+
+            // 修复1：局部更新所有勾选编号（不重新渲染图片）
+            function updateAllCompareBadges() {
+                const group = state.groups[state.currentGroupIndex] || [];
+                group.forEach(id => {
+                    const item = gridContainer.querySelector(`.grid-item[data-id="${id}"]`);
+                    if (!item) return;
+                    const selectedIdx = state.compareSelection.indexOf(id);
+                    if (selectedIdx >= 0) {
+                        item.classList.add('compare-selected');
+                        item.classList.remove('compare-selectable');
+                        // 更新或创建编号角标
+                        let badge = item.querySelector('.compare-check');
+                        if (!badge) {
+                            badge = document.createElement('div');
+                            badge.className = 'compare-check';
+                            item.appendChild(badge);
+                        }
+                        badge.textContent = selectedIdx + 1;
+                        // 移除旧 mark-dot
+                        const oldDot = item.querySelector('.mark-dot');
+                        if (oldDot) oldDot.remove();
+                    } else {
+                        item.classList.remove('compare-selected');
+                        item.classList.add('compare-selectable');
+                        const badge = item.querySelector('.compare-check');
+                        if (badge) badge.remove();
+                    }
+                });
             }
 
             function updateCompareSelectButton() {
@@ -929,7 +964,11 @@
                     return;
                 }
                 state.viewMode = 'compare';
+                // 修复2：默认全部不勾选
                 state.compareMarks = {};
+                state.compareSelection.forEach(id => {
+                    state.compareMarks[id] = 'delete';
+                });
                 compareSelectHint.classList.remove('show');
                 viewerContainer.classList.add('hidden');
                 gridContainer.classList.add('hidden');
@@ -942,12 +981,6 @@
                 const photos = state.compareSelection.map(id => state.photos.find(p => p.id === id))
                     .filter(Boolean);
                 const items = photos.slice(0, 4);
-
-                if (Object.keys(state.compareMarks).length === 0) {
-                    state.compareSelection.forEach(id => {
-                        state.compareMarks[id] = 'keep';
-                    });
-                }
 
                 let html = `
                     <div class="compare-top-bar">
