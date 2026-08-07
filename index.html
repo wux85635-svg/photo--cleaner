@@ -215,6 +215,13 @@
             border-color: var(--accent-delete);
             opacity: 0.5;
         }
+        .grid-item.compare-selectable {
+            border: 2px dashed var(--accent-warn);
+        }
+        .grid-item.compare-selected {
+            border: 3px solid var(--accent-warn);
+            box-shadow: 0 0 12px rgba(255, 159, 10, 0.5);
+        }
         .grid-item .mark-dot {
             position: absolute;
             top: 6px;
@@ -234,6 +241,27 @@
         .grid-item.marked-delete .mark-dot {
             background: var(--accent-delete);
             color: #fff;
+        }
+        .grid-item.compare-selected .mark-dot {
+            background: var(--accent-warn);
+            color: #000;
+            font-size: 0.7em;
+        }
+        .grid-item .compare-check {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-warn);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.75em;
+            pointer-events: none;
         }
 
         .compare-container {
@@ -256,16 +284,15 @@
             border: 1px solid var(--border);
             overflow: hidden;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .compare-item img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             pointer-events: none;
-        }
-        .compare-item.selected-best {
-            border: 3px solid var(--accent-keep);
-            box-shadow: inset 0 0 30px rgba(52, 199, 89, 0.2);
         }
         .compare-item .compare-label {
             position: absolute;
@@ -276,6 +303,66 @@
             border-radius: 10px;
             font-size: 0.7em;
             pointer-events: none;
+        }
+        .compare-item.selected-compare-keep {
+            border: 3px solid var(--accent-keep);
+            box-shadow: inset 0 0 30px rgba(52, 199, 89, 0.3);
+        }
+        .compare-item .compare-check-mark {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--accent-keep);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s;
+        }
+        .compare-item.selected-compare-keep .compare-check-mark {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .compare-top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 35;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        .compare-top-bar span {
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .compare-top-bar button {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.85em;
+            cursor: pointer;
+        }
+        .compare-top-bar .btn-done {
+            background: var(--accent-keep);
+            color: #fff;
+        }
+        .compare-top-bar .btn-cancel-compare {
+            background: var(--surface-light);
+            color: var(--text);
         }
 
         .bottom-bar {
@@ -321,10 +408,7 @@
         .action-btn.primary-delete {
             color: var(--accent-delete);
         }
-        .action-btn.primary-keep .icon {
-            font-size: 2em;
-            font-weight: bold;
-        }
+        .action-btn.primary-keep .icon,
         .action-btn.primary-delete .icon {
             font-size: 2em;
             font-weight: bold;
@@ -500,6 +584,26 @@
         .hidden {
             display: none !important;
         }
+
+        .compare-select-hint {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-warn);
+            color: #000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 700;
+            z-index: 150;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .compare-select-hint.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -523,7 +627,9 @@
             <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
         </div>
         <div class="grid-container hidden" id="gridContainer"></div>
+
         <div class="compare-container hidden" id="compareContainer"></div>
+
         <div class="upload-zone" id="uploadZone">
             <div class="upload-icon">📁</div>
             <p>选择照片开始清理</p>
@@ -531,6 +637,8 @@
             <p style="font-size:0.75em;opacity:0.6;">支持 JPG / PNG / HEIC / Live Photo</p>
         </div>
     </div>
+
+    <div class="compare-select-hint" id="compareSelectHint">👆 勾选要对比的照片（2-4张），选好后点「开始对比」</div>
 
     <div class="bottom-bar" id="bottomBar">
         <button class="action-btn" id="btnTrash">
@@ -590,10 +698,12 @@
                 viewMode: 'viewer',
                 sortMode: 'smart',
                 compareSelection: [],
+                compareMarks: {},
                 trashBin: [],
                 scale: 1,
                 isZoomed: false,
                 lastTapTime: 0,
+                gestureLocked: false,
             };
 
             const $ = (sel) => document.querySelector(sel);
@@ -613,6 +723,7 @@
             const fileInput = $('#fileInput');
             const confirmModal = $('#confirmModal');
             const settingsModal = $('#settingsModal');
+            const compareSelectHint = $('#compareSelectHint');
 
             function generateId() {
                 return Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
@@ -714,90 +825,83 @@
 
             function renderGrid() {
                 const group = state.groups[state.currentGroupIndex] || [];
+                const isCompareSelect = state.viewMode === 'compare-select';
+
                 gridContainer.innerHTML = group.map(id => {
                     const photo = state.photos.find(p => p.id === id);
                     if (!photo) return '';
-                    const markClass = photo.status === 'keep' ? 'marked-keep' :
-                        photo.status === 'delete' ? 'marked-delete' : '';
-                    const markDot = photo.status === 'keep' ? '✓' :
-                        photo.status === 'delete' ? '✕' : '';
+                    let markClass = '';
+                    let extraBadge = '';
+
+                    if (isCompareSelect) {
+                        if (state.compareSelection.includes(id)) {
+                            markClass = 'compare-selected';
+                            extraBadge =
+                                `<div class="compare-check">${state.compareSelection.indexOf(id) + 1}</div>`;
+                        } else {
+                            markClass = 'compare-selectable';
+                        }
+                    } else {
+                        if (photo.status === 'keep') markClass = 'marked-keep';
+                        else if (photo.status === 'delete') markClass = 'marked-delete';
+                    }
+
+                    const markDot = (!isCompareSelect && photo.status !== 'unmarked') ?
+                        (photo.status === 'keep' ? '✓' : '✕') : '';
+
                     return `
                         <div class="grid-item ${markClass}" data-id="${id}">
                             <img src="${photo.url}" alt="" loading="lazy">
+                            ${extraBadge}
                             ${markDot ? `<div class="mark-dot">${markDot}</div>` : ''}
                         </div>`;
                 }).join('');
+
                 gridContainer.querySelectorAll('.grid-item').forEach(item => {
                     item.addEventListener('click', () => {
                         const id = item.dataset.id;
-                        const idx = group.indexOf(id);
-                        if (idx >= 0) {
-                            state.currentPhotoIndex = idx;
-                            switchToViewer();
+                        if (state.viewMode === 'compare-select') {
+                            toggleCompareSelection(id);
+                            renderGrid();
+                        } else {
+                            const idx = group.indexOf(id);
+                            if (idx >= 0) {
+                                state.currentPhotoIndex = idx;
+                                switchToViewer();
+                            }
                         }
                     });
                 });
                 updateProgress();
             }
 
-            function renderCompare() {
-                const photos = state.compareSelection.map(id => state.photos.find(p => p.id === id))
-                    .filter(Boolean);
-                const items = photos.slice(0, 4);
-                compareContainer.innerHTML = items.map((photo, i) => `
-                    <div class="compare-item" data-id="${photo.id}" data-index="${i}">
-                        <img src="${photo.url}" alt="">
-                        <div class="compare-label">#${i + 1}</div>
-                    </div>
-                `).join('');
-                for (let i = items.length; i < 4; i++) {
-                    compareContainer.innerHTML +=
-                        '<div class="compare-item" style="background:#111;"></div>';
+            function toggleCompareSelection(id) {
+                const idx = state.compareSelection.indexOf(id);
+                if (idx >= 0) {
+                    state.compareSelection.splice(idx, 1);
+                } else {
+                    if (state.compareSelection.length >= 4) {
+                        showToast('最多选择 4 张照片进行对比');
+                        return;
+                    }
+                    state.compareSelection.push(id);
                 }
-                compareContainer.querySelectorAll('.compare-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        const photoId = item.dataset.id;
-                        if (!photoId) return;
-                        compareContainer.querySelectorAll('.compare-item').forEach(el => el
-                            .classList.remove('selected-best'));
-                        item.classList.add('selected-best');
-                        state.compareSelection.forEach(id => {
-                            const p = state.photos.find(ph => ph.id === id);
-                            if (p) {
-                                p.status = (id === photoId) ? 'keep' : 'delete';
-                                if (p.status === 'delete' && !state.trashBin.includes(p
-                                        .id)) {
-                                    state.trashBin.push(p.id);
-                                }
-                            }
-                        });
-                        showToast('已标记最佳照片为保留，其余为删除');
-                        setTimeout(() => exitCompare(), 800);
-                    });
-                });
+                updateCompareSelectButton();
             }
 
-            function switchToViewer() {
-                state.viewMode = 'viewer';
-                viewerContainer.classList.remove('hidden');
-                gridContainer.classList.add('hidden');
-                compareContainer.classList.add('hidden');
-                uploadZone.classList.add('hidden');
-                $('#btnGridToggle').textContent = '⊞';
-                renderViewer();
+            function updateCompareSelectButton() {
+                const count = state.compareSelection.length;
+                const btnCompare = $('#btnCompare');
+                if (count >= 2) {
+                    btnCompare.innerHTML = '<span class="icon">⊡</span>开始对比';
+                    btnCompare.style.color = 'var(--accent-warn)';
+                } else {
+                    btnCompare.innerHTML = '<span class="icon">⊡</span>对比';
+                    btnCompare.style.color = 'var(--text-secondary)';
+                }
             }
 
-            function switchToGrid() {
-                state.viewMode = 'grid';
-                viewerContainer.classList.add('hidden');
-                gridContainer.classList.remove('hidden');
-                compareContainer.classList.add('hidden');
-                uploadZone.classList.add('hidden');
-                $('#btnGridToggle').textContent = '▣';
-                renderGrid();
-            }
-
-            function enterCompare() {
+            function enterCompareSelect() {
                 const group = state.groups[state.currentGroupIndex] || [];
                 const unmarked = group.filter(id => {
                     const p = state.photos.find(ph => ph.id === id);
@@ -807,8 +911,26 @@
                     showToast('需要至少 2 张未标记照片才能对比');
                     return;
                 }
-                state.compareSelection = unmarked.slice(0, 4);
+                state.viewMode = 'compare-select';
+                state.compareSelection = [];
+                updateCompareSelectButton();
+                viewerContainer.classList.add('hidden');
+                gridContainer.classList.remove('hidden');
+                compareContainer.classList.add('hidden');
+                uploadZone.classList.add('hidden');
+                compareSelectHint.classList.add('show');
+                $('#btnGridToggle').textContent = '▣';
+                renderGrid();
+            }
+
+            function startCompare() {
+                if (state.compareSelection.length < 2) {
+                    showToast('请至少选择 2 张照片');
+                    return;
+                }
                 state.viewMode = 'compare';
+                state.compareMarks = {};
+                compareSelectHint.classList.remove('show');
                 viewerContainer.classList.add('hidden');
                 gridContainer.classList.add('hidden');
                 compareContainer.classList.remove('hidden');
@@ -816,12 +938,135 @@
                 renderCompare();
             }
 
-            function exitCompare() {
+            function renderCompare() {
+                const photos = state.compareSelection.map(id => state.photos.find(p => p.id === id))
+                    .filter(Boolean);
+                const items = photos.slice(0, 4);
+
+                if (Object.keys(state.compareMarks).length === 0) {
+                    state.compareSelection.forEach(id => {
+                        state.compareMarks[id] = 'keep';
+                    });
+                }
+
+                let html = `
+                    <div class="compare-top-bar">
+                        <button class="btn-cancel-compare" id="btnCancelCompare">← 返回</button>
+                        <span>👆 点击勾选要保留的照片</span>
+                        <button class="btn-done" id="btnDoneCompare">完成对比</button>
+                    </div>`;
+
+                items.forEach((photo, i) => {
+                    const isKept = state.compareMarks[photo.id] === 'keep';
+                    const markClass = isKept ? 'selected-compare-keep' : '';
+
+                    html += `
+                        <div class="compare-item ${markClass}" data-id="${photo.id}">
+                            <img src="${photo.url}" alt="">
+                            <div class="compare-label">#${i + 1}</div>
+                            <div class="compare-check-mark">✓</div>
+                        </div>`;
+                });
+
+                for (let i = items.length; i < 4; i++) {
+                    html += '<div class="compare-item" style="background:#111;"></div>';
+                }
+
+                compareContainer.innerHTML = html;
+
+                $('#btnCancelCompare')?.addEventListener('click', () => {
+                    state.compareMarks = {};
+                    enterCompareSelect();
+                    renderGrid();
+                });
+
+                $('#btnDoneCompare')?.addEventListener('click', () => {
+                    applyCompareMarks();
+                });
+
+                compareContainer.querySelectorAll('.compare-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const id = item.dataset.id;
+                        if (!id) return;
+                        if (state.compareMarks[id] === 'keep') {
+                            state.compareMarks[id] = 'delete';
+                        } else {
+                            state.compareMarks[id] = 'keep';
+                        }
+                        renderCompare();
+                    });
+                });
+            }
+
+            function applyCompareMarks() {
+                let keepCount = 0;
+                let deleteCount = 0;
+
+                state.compareSelection.forEach(id => {
+                    const p = state.photos.find(ph => ph.id === id);
+                    if (!p) return;
+                    if (state.compareMarks[id] === 'keep') {
+                        p.status = 'keep';
+                        state.trashBin = state.trashBin.filter(tid => tid !== id);
+                        keepCount++;
+                    } else {
+                        p.status = 'delete';
+                        if (!state.trashBin.includes(p.id)) {
+                            state.trashBin.push(p.id);
+                        }
+                        deleteCount++;
+                    }
+                });
+
+                state.compareMarks = {};
                 state.compareSelection = [];
+                updateCompareSelectButton();
+                showToast(`保留 ${keepCount} 张，删除 ${deleteCount} 张`);
+                exitCompare();
+            }
+
+            function exitCompare() {
+                state.viewMode = 'viewer';
+                state.compareSelection = [];
+                state.compareMarks = {};
+                compareContainer.classList.add('hidden');
+                compareSelectHint.classList.remove('show');
+                updateCompareSelectButton();
+                $('#btnCompare').style.color = 'var(--text-secondary)';
                 checkGroupComplete();
                 if (state.groups.length > 0 && state.groups[state.currentGroupIndex]?.length > 0) {
                     switchToViewer();
                 }
+            }
+
+            function switchToViewer() {
+                state.viewMode = 'viewer';
+                viewerContainer.classList.remove('hidden');
+                gridContainer.classList.add('hidden');
+                compareContainer.classList.add('hidden');
+                compareSelectHint.classList.remove('show');
+                uploadZone.classList.add('hidden');
+                $('#btnGridToggle').textContent = '⊞';
+                state.compareSelection = [];
+                state.compareMarks = {};
+                updateCompareSelectButton();
+                $('#btnCompare').style.color = 'var(--text-secondary)';
+                renderViewer();
+            }
+
+            function switchToGrid() {
+                state.viewMode = 'grid';
+                viewerContainer.classList.add('hidden');
+                gridContainer.classList.remove('hidden');
+                compareContainer.classList.add('hidden');
+                compareSelectHint.classList.remove('show');
+                uploadZone.classList.add('hidden');
+                $('#btnGridToggle').textContent = '▣';
+                state.compareSelection = [];
+                state.compareMarks = {};
+                updateCompareSelectButton();
+                $('#btnCompare').style.color = 'var(--text-secondary)';
+                renderGrid();
             }
 
             function markCurrent(status) {
@@ -878,8 +1123,7 @@
                 if (direction === 'next') {
                     state.currentPhotoIndex = (state.currentPhotoIndex + 1) % group.length;
                 } else {
-                    state.currentPhotoIndex = (state.currentPhotoIndex - 1 + group.length) % group
-                        .length;
+                    state.currentPhotoIndex = (state.currentPhotoIndex - 1 + group.length) % group.length;
                 }
                 renderViewer();
                 updateProgress();
@@ -928,7 +1172,7 @@
                     return;
                 }
                 $('#confirmText').textContent =
-                    `回收站中有 ${count} 张照片。在网页版中，这些照片不会从您的设备中删除（浏览器无法访问系统相册）。在原生 App 版本中，此操作将永久删除这些照片。`;
+                    `回收站中有 ${count} 张照片。在网页版中，这些照片不会从您的设备中删除。在原生 App 版本中，此操作将永久删除这些照片。`;
                 confirmModal.classList.add('show');
             }
 
@@ -942,6 +1186,8 @@
             let isPinching = false;
 
             viewerWrapper.addEventListener('touchstart', (e) => {
+                if (state.gestureLocked) return;
+
                 if (e.touches.length === 1) {
                     touchStartX = e.touches[0].clientX;
                     touchStartY = e.touches[0].clientY;
@@ -963,6 +1209,8 @@
             }, { passive: false });
 
             viewerWrapper.addEventListener('touchmove', (e) => {
+                if (state.gestureLocked) return;
+
                 if (isPinching && e.touches.length === 2) {
                     e.preventDefault();
                     const currentDistance = getPinchDistance(e.touches);
@@ -979,8 +1227,14 @@
 
             viewerWrapper.addEventListener('touchend', (e) => {
                 clearTimeout(longPressTimer);
+
                 if (isPinching) {
                     isPinching = false;
+                    state.gestureLocked = true;
+                    setTimeout(() => {
+                        state.gestureLocked = false;
+                    }, 350);
+
                     if (state.scale < 1.05) {
                         state.scale = 1;
                         state.isZoomed = false;
@@ -989,10 +1243,14 @@
                     }
                     return;
                 }
+
+                if (state.gestureLocked) return;
+
                 if (isLongPress) {
                     stopLivePhoto();
                     return;
                 }
+
                 if (state.isZoomed) {
                     const now = Date.now();
                     if (now - state.lastTapTime < 300) {
@@ -1004,17 +1262,19 @@
                     state.lastTapTime = now;
                     return;
                 }
+
                 const dx = touchStartX - (e.changedTouches[0]?.clientX || touchStartX);
                 const dy = touchStartY - (e.changedTouches[0]?.clientY || touchStartY);
                 const absDx = Math.abs(dx);
                 const absDy = Math.abs(dy);
-                if (absDy > absDx && absDy > 60) {
+
+                if (absDy > absDx && absDy > 80) {
                     if (dy > 0) {
                         markCurrent('delete');
                     } else {
                         markCurrent('keep');
                     }
-                } else if (absDx > absDy && absDx > 40) {
+                } else if (absDx > absDy && absDx > 50) {
                     if (dx > 0) {
                         navigate('next');
                     } else {
@@ -1091,7 +1351,12 @@
             $('#btnGridToggle').addEventListener('click', () => {
                 if (state.viewMode === 'viewer') {
                     switchToGrid();
-                } else {
+                } else if (state.viewMode === 'grid') {
+                    switchToViewer();
+                } else if (state.viewMode === 'compare-select') {
+                    state.compareSelection = [];
+                    updateCompareSelectButton();
+                    compareSelectHint.classList.remove('show');
                     switchToViewer();
                 }
             });
@@ -1099,7 +1364,17 @@
             $('#btnKeep').addEventListener('click', () => markCurrent('keep'));
             $('#btnDelete').addEventListener('click', () => markCurrent('delete'));
             $('#btnUndo').addEventListener('click', undoLast);
-            $('#btnCompare').addEventListener('click', enterCompare);
+
+            $('#btnCompare').addEventListener('click', () => {
+                if (state.viewMode === 'compare-select') {
+                    startCompare();
+                } else if (state.viewMode === 'compare') {
+                    applyCompareMarks();
+                } else {
+                    enterCompareSelect();
+                }
+            });
+
             $('#btnTrash').addEventListener('click', showConfirmDelete);
 
             $('#btnSettings').addEventListener('click', () => {
@@ -1199,15 +1474,33 @@
                         break;
                     case 'g':
                         if (state.viewMode === 'viewer') switchToGrid();
-                        else switchToViewer();
+                        else if (state.viewMode === 'grid') switchToViewer();
                         break;
                     case 'c':
-                        enterCompare();
+                        if (state.viewMode === 'compare-select') {
+                            startCompare();
+                        } else if (state.viewMode === 'compare') {
+                            applyCompareMarks();
+                        } else {
+                            enterCompareSelect();
+                        }
                         break;
                     case 'z':
                         if (e.ctrlKey || e.metaKey) {
                             e.preventDefault();
                             undoLast();
+                        }
+                        break;
+                    case 'Escape':
+                        if (state.viewMode === 'compare-select') {
+                            state.compareSelection = [];
+                            updateCompareSelectButton();
+                            compareSelectHint.classList.remove('show');
+                            switchToViewer();
+                        } else if (state.viewMode === 'compare') {
+                            state.compareMarks = {};
+                            enterCompareSelect();
+                            renderGrid();
                         }
                         break;
                 }
