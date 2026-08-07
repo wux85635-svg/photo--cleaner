@@ -709,6 +709,9 @@
             <button id="btnSettings" class="btn-icon" title="偏好设置">
                 <i class="fa-regular fa-sun"></i>
             </button>
+            <button id="btnUpload" class="btn-icon" title="上传照片">
+                <i class="fa-solid fa-plus"></i>
+            </button>
             <div>
                 <div class="title" id="appTitle">静照 · 照片清理</div>
                 <div class="group-info" id="groupStatus">第 1/2 组 (9/10)</div>
@@ -859,6 +862,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Hidden file input for photo upload -->
+    <input type="file" id="fileInput" multiple accept="image/*,image/heic,image/heif" style="display:none;">
 
     <script>
         const SAMPLE_CATEGORIES = ['风景连拍', '人物近照', '美食打卡', '宠物时刻', '文档发票'];
@@ -1422,6 +1428,47 @@
         document.getElementById('aiToggle').addEventListener('change', (e) => {
             state.aiEnabled = e.target.checked;
             updateUI();
+        });
+
+        // ========== 用户上传照片 ==========
+        const fileInput = document.getElementById('fileInput');
+        const btnUpload = document.getElementById('btnUpload');
+
+        btnUpload.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            const newPhotos = [];
+            Array.from(files).forEach((file, index) => {
+                if (!file.type.startsWith('image/')) return;
+                const id = 'upload_' + Date.now() + '_' + index;
+                const url = URL.createObjectURL(file);
+                newPhotos.push({
+                    id: id,
+                    url: url,
+                    thumbUrl: url,
+                    sizeMB: (file.size / (1024 * 1024)).toFixed(1),
+                    group: state.currentGroupIndex,
+                    isLive: false,
+                    isBlur: false,
+                    blurScore: 85 + Math.floor(Math.random() * 14),
+                    aiRecommendation: 'none',
+                    category: '用户上传',
+                    markedStatus: null
+                });
+            });
+
+            if (newPhotos.length > 0) {
+                state.allPhotos = [...state.allPhotos, ...newPhotos];
+                initGroup(state.currentGroupIndex);
+                showToast(`已导入 ${newPhotos.length} 张照片`, 'keep');
+            }
+
+            fileInput.value = '';
         });
 
         window.addEventListener('load', () => {
