@@ -5,18 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>PhotoCleaner - 照片清理</title>
+    <title>PhotoCleaner - 智能照片清理</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         :root {
-            --bg: #0a0a0a;
-            --surface: #1a1a1a;
-            --surface-light: #252525;
-            --text: #f0f0f0;
-            --text-secondary: #999;
-            --accent-keep: #34c759;
-            --accent-delete: #ff453a;
-            --accent-warn: #ff9f0a;
-            --border: #333;
+            /* 温暖明亮奶油暖色系调色板 */
+            --bg: #f5f2eb;
+            --surface: #fbf9f5;
+            --surface-light: #eeeae2;
+            --text: #2d2a26;
+            --text-secondary: #8c857b;
+            --accent-keep: #2e7d32;
+            --accent-delete: #d32f2f;
+            --accent-warn: #e67e22;
+            --border: #e6e1d7;
             --safe-bottom: env(safe-area-inset-bottom, 16px);
         }
 
@@ -46,37 +52,49 @@
             padding: 12px 16px;
             background: var(--surface);
             border-bottom: 1px solid var(--border);
-            z-index: 100;
+            z-index: 50;
             position: relative;
         }
+
         .header .title {
-            font-size: 1.1em;
+            font-size: 1.05rem;
             font-weight: 700;
             letter-spacing: -0.3px;
+            color: var(--text);
         }
+
         .header .group-info {
-            font-size: 0.8em;
+            font-size: 0.8rem;
             color: var(--text-secondary);
         }
-        .header .btn-icon {
-            width: 36px;
-            height: 36px;
+
+        .btn-icon {
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             border: none;
-            background: var(--surface-light);
-            color: var(--text);
-            font-size: 1.2em;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            transition: transform 0.15s, background 0.15s, color 0.15s;
+        }
+
+        .btn-icon:active {
+            transform: scale(0.92);
+            background: var(--surface-light);
+            color: var(--text);
         }
 
         .main-view {
             position: relative;
-            height: calc(100vh - 60px - 80px);
-            height: calc(100dvh - 60px - 80px);
+            height: calc(100vh - 57px - 76px);
+            height: calc(100dvh - 57px - 76px);
             overflow: hidden;
+            background: var(--bg);
         }
 
         .viewer-container {
@@ -85,13 +103,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #000;
-            transition: opacity 0.25s;
+            background: var(--bg);
+            transition: opacity 0.25s ease;
+            padding: 12px;
         }
+
         .viewer-container.hidden {
             opacity: 0;
             pointer-events: none;
         }
+
         .viewer-image-wrapper {
             position: relative;
             width: 100%;
@@ -100,271 +121,60 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            touch-action: none;
         }
+
         .viewer-image {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            transition: transform 0.05s linear;
-            pointer-events: none;
-        }
-        .viewer-image.zoomed {
-            transition: none;
-        }
-
-        .mark-indicator {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 28px;
-            border-radius: 30px;
-            font-size: 1em;
-            font-weight: 700;
-            letter-spacing: 1px;
-            pointer-events: none;
-            opacity: 0;
-            transition: all 0.25s;
-            z-index: 20;
-        }
-        .mark-indicator.keep {
-            background: var(--accent-keep);
-            opacity: 0.9;
-        }
-        .mark-indicator.delete {
-            background: var(--accent-delete);
-            opacity: 0.9;
-        }
-        .mark-indicator.undo {
-            background: var(--surface-light);
-            border: 1px solid var(--border);
-            opacity: 0.9;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s ease;
+            will-change: transform;
         }
 
-        .live-photo-badge {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.7em;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            z-index: 10;
-            display: none;
-            pointer-events: none;
-        }
-        .live-photo-badge.show {
-            display: block;
+        .viewer-image.marked-delete {
+            filter: brightness(0.6) saturate(0.5);
         }
 
-        .progress-bar {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--border);
-            z-index: 10;
-        }
-        .progress-bar .fill {
-            height: 100%;
-            background: var(--accent-keep);
-            transition: width 0.3s;
+        .viewer-image.marked-keep {
+            box-shadow: 0 0 0 4px var(--accent-keep), 0 12px 36px rgba(46, 125, 50, 0.2);
         }
 
-        .grid-container {
+        .badge-tag {
             position: absolute;
-            inset: 0;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(4, 1fr);
-            gap: 4px;
-            padding: 4px;
-            background: var(--bg);
-            overflow-y: auto;
-            align-content: start;
-            transition: opacity 0.25s;
-        }
-        .grid-container.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        .grid-item {
-            position: relative;
-            aspect-ratio: 1;
-            border-radius: 6px;
-            overflow: hidden;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: border-color 0.15s, opacity 0.15s;
-            background: var(--surface);
-        }
-        .grid-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            pointer-events: none;
-        }
-        .grid-item.marked-keep {
-            border-color: var(--accent-keep);
-        }
-        .grid-item.marked-delete {
-            border-color: var(--accent-delete);
-            opacity: 0.5;
-        }
-        .grid-item.compare-selectable {
-            border: 2px dashed var(--accent-warn);
-        }
-        .grid-item.compare-selected {
-            border: 3px solid var(--accent-warn);
-            box-shadow: 0 0 12px rgba(255, 159, 10, 0.5);
-        }
-        .grid-item .mark-dot {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            font-size: 0.6em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            pointer-events: none;
-        }
-        .grid-item.marked-keep .mark-dot {
-            background: var(--accent-keep);
-        }
-        .grid-item.marked-delete .mark-dot {
-            background: var(--accent-delete);
-            color: #fff;
-        }
-        .grid-item.compare-selected .mark-dot {
-            background: var(--accent-warn);
-            color: #000;
-            font-size: 0.7em;
-        }
-        .grid-item .compare-check {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--accent-warn);
-            color: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.75em;
-            pointer-events: none;
-        }
-
-        .compare-container {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-wrap: wrap;
-            background: #000;
-            transition: opacity 0.25s;
-            z-index: 30;
-        }
-        .compare-container.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        .compare-item {
-            position: relative;
-            width: 50%;
-            height: 50%;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: border-color 0.2s, opacity 0.2s;
-        }
-        .compare-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            pointer-events: none;
-        }
-        .compare-item .compare-label {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 4px 10px;
-            border-radius: 10px;
-            font-size: 0.7em;
-            pointer-events: none;
-        }
-        .compare-item.selected-compare-keep {
-            border: 3px solid var(--accent-keep);
-            box-shadow: inset 0 0 30px rgba(52, 199, 89, 0.3);
-        }
-        .compare-item .compare-check-mark {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: var(--accent-keep);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.9em;
-            font-weight: bold;
-            pointer-events: none;
-            opacity: 0;
-            transform: scale(0.5);
-            transition: all 0.2s;
-        }
-        .compare-item.selected-compare-keep .compare-check-mark {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .compare-top-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 35;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-            background: rgba(0, 0, 0, 0.8);
-        }
-        .compare-top-bar span {
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-        .compare-top-bar button {
-            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: #3d3730;
+            padding: 6px 14px;
             border-radius: 20px;
-            border: none;
+            font-size: 0.78rem;
             font-weight: 600;
-            font-size: 0.85em;
-            cursor: pointer;
+            letter-spacing: 0.2px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
         }
-        .compare-top-bar .btn-done {
-            background: var(--accent-keep);
-            color: #fff;
+
+        .badge-ai-topright {
+            top: 20px;
+            right: 20px;
         }
-        .compare-top-bar .btn-cancel-compare {
-            background: var(--surface-light);
-            color: var(--text);
+
+        .badge-category-bottomleft {
+            bottom: 20px;
+            left: 20px;
+        }
+
+        .badge-size-bottomright {
+            bottom: 20px;
+            right: 20px;
         }
 
         .bottom-bar {
@@ -375,12 +185,13 @@
             display: flex;
             align-items: center;
             justify-content: space-around;
-            padding: 12px 16px calc(12px + var(--safe-bottom));
+            padding: 8px 12px calc(8px + var(--safe-bottom));
             background: var(--surface);
             border-top: 1px solid var(--border);
-            z-index: 100;
-            gap: 8px;
+            z-index: 50;
+            gap: 4px;
         }
+
         .action-btn {
             display: flex;
             flex-direction: column;
@@ -389,1166 +200,1233 @@
             background: none;
             border: none;
             color: var(--text-secondary);
-            font-size: 0.7em;
+            font-size: 0.75rem;
+            font-weight: 500;
             cursor: pointer;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 12px;
-            transition: all 0.15s;
-            min-width: 56px;
+            transition: all 0.15s ease;
+            min-width: 58px;
         }
-        .action-btn .icon {
-            font-size: 1.6em;
-            transition: transform 0.15s;
+
+        .action-btn i {
+            font-size: 1.2rem;
+            color: #615a51;
         }
+
         .action-btn:active {
-            background: var(--surface-light);
-            transform: scale(0.95);
-        }
-        .action-btn.primary-keep {
-            color: var(--accent-keep);
-        }
-        .action-btn.primary-delete {
-            color: var(--accent-delete);
-        }
-        .action-btn.primary-keep .icon,
-        .action-btn.primary-delete .icon {
-            font-size: 2em;
-            font-weight: bold;
+            transform: scale(0.92);
         }
 
-        .toast {
-            position: fixed;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
-            background: var(--surface-light);
+        .action-btn.btn-delete i {
+            color: #8c857b;
+        }
+
+        .action-btn.btn-keep i {
+            color: #8c857b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+            background: var(--bg);
             color: var(--text);
-            padding: 12px 24px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 600;
-            z-index: 200;
-            opacity: 0;
-            transition: all 0.3s;
-            pointer-events: none;
-            border: 1px solid var(--border);
-        }
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: manipulation;
         }
 
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 300;
+        .header {
             display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        .modal-overlay.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .modal-sheet {
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
             background: var(--surface);
-            border-radius: 20px 20px 0 0;
-            padding: 24px 20px calc(24px + var(--safe-bottom));
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
+            border-bottom: 1px solid var(--border);
+            z-index: 50;
+            position: relative;
         }
-        .modal-sheet h3 {
-            margin-bottom: 12px;
-            font-size: 1.1em;
+
+        .header .title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
         }
-        .modal-sheet p {
+
+        .header .group-info {
+            font-size: 0.8rem;
             color: var(--text-secondary);
-            font-size: 0.85em;
-            margin-bottom: 20px;
-            line-height: 1.5;
         }
-        .modal-sheet .modal-btns {
-            display: flex;
-            gap: 10px;
-        }
-        .modal-sheet button {
-            flex: 1;
-            padding: 14px;
-            border-radius: 14px;
+
+        .btn-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
             border: none;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .modal-sheet .btn-cancel {
             background: var(--surface-light);
             color: var(--text);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s, background 0.15s;
         }
-        .modal-sheet .btn-danger {
+
+        .btn-icon:active {
+            transform: scale(0.92);
+            background: #3a3a3c;
+        }
+
+        .main-view {
+            position: relative;
+            height: calc(100vh - 57px - 76px);
+            height: calc(100dvh - 57px - 76px);
+            overflow: hidden;
+        }
+
+        .viewer-container {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            transition: opacity 0.25s ease;
+        }
+
+        .viewer-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .viewer-image-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .viewer-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s ease;
+            will-change: transform;
+        }
+
+        .viewer-image.marked-delete {
+            filter: brightness(0.4) saturate(0.5);
+        }
+
+        .viewer-image.marked-keep {
+            box-shadow: 0 0 0 4px var(--accent-keep);
+        }
+
+        .mark-indicator {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) scale(0.9);
+            padding: 8px 24px;
+            border-radius: 30px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+
+        .mark-indicator.show {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+
+        .mark-indicator.keep {
+            background: var(--accent-keep);
+            color: #0d2818;
+        }
+
+        .mark-indicator.delete {
             background: var(--accent-delete);
             color: #fff;
         }
 
-        .settings-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 300;
+        .mark-indicator.undo {
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .badge-tag {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            z-index: 20;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 5px;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .badge-live {
+            top: 16px;
+            left: 16px;
+        }
+
+        .badge-ai {
+            top: 16px;
+            right: 16px;
+        }
+
+        .progress-bar-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 20;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--accent-keep);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Grid View */
+        .grid-container {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            padding: 8px;
+            background: var(--bg);
+            overflow-y: auto;
+            align-content: start;
+            transition: opacity 0.25s ease;
+            z-index: 10;
+        }
+
+        .grid-container.hidden {
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s;
         }
-        .settings-modal.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .settings-card {
-            background: var(--surface);
-            border-radius: 16px;
-            padding: 24px;
-            width: 85%;
-            max-width: 360px;
-        }
-        .settings-card h3 {
-            margin-bottom: 16px;
-            font-size: 1.1em;
-            text-align: center;
-        }
-        .settings-card .option {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 0;
-            border-bottom: 1px solid var(--border);
+
+        .grid-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            overflow: hidden;
             cursor: pointer;
-            font-size: 0.9em;
+            border: 2px solid transparent;
+            transition: transform 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+            background: var(--surface);
         }
-        .settings-card .option:last-child {
-            border-bottom: none;
+
+        .grid-item:active {
+            transform: scale(0.96);
         }
-        .settings-card .radio {
+
+        .grid-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+
+        .grid-item.marked-keep {
+            border-color: var(--accent-keep);
+        }
+
+        .grid-item.marked-delete {
+            border-color: var(--accent-delete);
+            opacity: 0.45;
+        }
+
+        .grid-item.compare-selectable {
+            border: 2px dashed var(--accent-warn);
+        }
+
+        .grid-item.compare-selected {
+            border: 3px solid var(--accent-warn);
+            box-shadow: 0 0 12px rgba(255, 159, 10, 0.4);
+        }
+
+        .grid-item .status-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            border: 2px solid var(--border);
+            font-size: 0.7rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-        .settings-card .radio.active {
-            border-color: var(--accent-keep);
-            background: var(--accent-keep);
-        }
-        .settings-card .radio.active::after {
-            content: '';
-            width: 8px;
-            height: 8px;
-            background: #fff;
-            border-radius: 50%;
+            font-weight: bold;
+            pointer-events: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
         }
 
-        .upload-zone {
+        .grid-item.marked-keep .status-badge {
+            background: var(--accent-keep);
+            color: #0d2818;
+        }
+
+        .grid-item.marked-delete .status-badge {
+            background: var(--accent-delete);
+            color: #fff;
+        }
+
+        .grid-item.compare-selected .status-badge {
+            background: var(--accent-warn);
+            color: #000;
+        }
+
+        /* Compare Split View */
+        .compare-container {
             position: absolute;
             inset: 0;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 4px;
+            padding: 4px;
+            background: #000;
+            transition: opacity 0.25s ease;
+            z-index: 40;
+        }
+
+        .compare-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .compare-item {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #111;
+        }
+
+        .compare-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .compare-item.keep-selected {
+            border-color: var(--accent-keep);
+            box-shadow: inset 0 0 20px rgba(52, 199, 89, 0.35);
+        }
+
+        .compare-item .check-overlay {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent-keep);
+            color: #0d2818;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            opacity: 0;
+            transform: scale(0.6);
+            transition: all 0.2s ease;
+        }
+
+        .compare-item.keep-selected .check-overlay {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .compare-banner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 159, 10, 0.9);
+            color: #1a1309;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+            z-index: 45;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 10px 16px calc(10px + var(--safe-bottom));
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            z-index: 50;
+            gap: 8px;
+        }
+
+        .action-btn {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 16px;
+            gap: 4px;
+            background: none;
+            border: none;
             color: var(--text-secondary);
-            z-index: 5;
-        }
-        .upload-zone .upload-icon {
-            font-size: 4em;
-            opacity: 0.6;
-        }
-        .upload-zone button {
-            padding: 14px 32px;
-            border-radius: 25px;
-            border: 1px solid var(--border);
-            background: var(--surface-light);
-            color: var(--text);
-            font-size: 1em;
-            font-weight: 600;
+            font-size: 0.7rem;
+            font-weight: 500;
             cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 12px;
+            transition: all 0.15s ease;
+            min-width: 58px;
         }
 
-        .hidden {
-            display: none !important;
+        .action-btn i {
+            font-size: 1.25rem;
         }
 
-        .compare-select-hint {
+        .action-btn:active {
+            transform: scale(0.9);
+        }
+
+        .action-btn.btn-delete {
+            color: var(--accent-delete);
+        }
+
+        .action-btn.btn-keep {
+            color: var(--accent-keep);
+        }
+
+        .action-btn.btn-compare.active {
+            color: var(--accent-warn);
+            background: rgba(255, 159, 10, 0.15);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
             position: fixed;
-            top: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--accent-warn);
-            color: #000;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 0.8em;
-            font-weight: 700;
-            z-index: 150;
-            pointer-events: none;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            align-items: flex-end;
             opacity: 0;
-            transition: opacity 0.3s;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
         }
-        .compare-select-hint.show {
+
+        .modal-overlay.show {
             opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-sheet {
+            width: 100%;
+            background: var(--surface);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            padding: 20px 20px calc(20px + var(--safe-bottom));
+            max-height: 85vh;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border-top: 1px solid var(--border);
+        }
+
+        .modal-overlay.show .modal-sheet {
+            transform: translateY(0);
+        }
+
+        @keyframes livePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03) rotate(0.5deg); }
+            100% { transform: scale(1); }
+        }
+
+        .live-playing {
+            animation: livePulse 1.2s infinite ease-in-out;
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <button class="btn-icon" id="btnSettings" title="设置">⚙️</button>
-        <div>
-            <div class="title">PhotoCleaner</div>
-            <div class="group-info" id="groupInfo">准备开始</div>
-        </div>
-        <button class="btn-icon" id="btnGridToggle" title="切换网格">⊞</button>
-    </div>
-
-    <div class="main-view" id="mainView">
-        <div class="viewer-container hidden" id="viewerContainer">
-            <div class="live-photo-badge" id="livePhotoBadge">LIVE</div>
-            <div class="mark-indicator" id="markIndicator"></div>
-            <div class="viewer-image-wrapper" id="viewerWrapper">
-                <img class="viewer-image" id="viewerImage" src="" alt="" draggable="false">
+    <!-- Header -->
+    <header class="header">
+        <div class="flex items-center gap-2">
+            <button id="btnSettings" class="btn-icon" title="偏好设置">
+                <i class="fa-regular fa-sun"></i>
+            </button>
+            <div>
+                <div class="title" id="appTitle">静照 · 照片清理</div>
+                <div class="group-info" id="groupStatus">第 1/2 组 (9/10)</div>
             </div>
-            <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
         </div>
-        <div class="grid-container hidden" id="gridContainer"></div>
 
-        <div class="compare-container hidden" id="compareContainer"></div>
-
-        <div class="upload-zone" id="uploadZone">
-            <div class="upload-icon">📁</div>
-            <p>选择照片开始清理</p>
-            <button id="btnUpload">📷 从相册选择</button>
-            <p style="font-size:0.75em;opacity:0.6;">支持 JPG / PNG / HEIC / Live Photo</p>
+        <div class="flex items-center gap-1">
+            <button id="btnRecycleBin" class="btn-icon relative" title="回收站">
+                <i class="fa-regular fa-trash-can"></i>
+                <span id="trashBadge" class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">3</span>
+            </button>
+            <button id="btnToggleView" class="btn-icon" title="切换视图">
+                <i class="fa-solid fa-border-all" id="viewIcon"></i>
+            </button>
         </div>
-    </div>
+    </header>
 
-    <div class="compare-select-hint" id="compareSelectHint">👆 勾选要对比的照片（2-4张），选好后点「开始对比」</div>
+    <!-- Main View -->
+    <main class="main-view" id="mainView">
+        
+        <!-- Toast / Mark Indicator -->
+        <div id="markIndicator" class="mark-indicator">
+            <i id="indicatorIcon" class="fa-solid fa-check"></i>
+            <span id="indicatorText"></span>
+        </div>
 
-    <div class="bottom-bar" id="bottomBar">
-        <button class="action-btn" id="btnTrash">
-            <span class="icon">🗑</span>回收站
-        </button>
-        <button class="action-btn primary-delete" id="btnDelete">
-            <span class="icon">✕</span>删除
-        </button>
-        <button class="action-btn" id="btnCompare">
-            <span class="icon">⊡</span>对比
-        </button>
-        <button class="action-btn primary-keep" id="btnKeep">
-            <span class="icon">✓</span>保留
-        </button>
-        <button class="action-btn" id="btnUndo">
-            <span class="icon">↩</span>撤销
-        </button>
-    </div>
+        <!-- Compare Mode Banner & Floating Action Bar -->
+        <div id="compareBanner" class="compare-banner hidden">
+            <span>选择 2-4 张照片进行对比</span>
+            <button id="btnCancelCompareSelect" class="text-xs bg-black/20 px-2 py-1 rounded">取消</button>
+        </div>
 
-    <div class="toast" id="toast"></div>
+        <div id="compareActionBar" class="fixed bottom-20 left-4 right-4 bg-stone-900/90 text-white p-3 rounded-xl flex items-center justify-between shadow-xl z-40 hidden">
+            <button id="btnExitCompare" class="text-stone-300 text-xs px-3 py-1.5 rounded-lg border border-stone-700">退出对比</button>
+            <button id="btnApplyCompare" class="text-xs font-bold bg-amber-500 text-stone-950 px-4 py-1.5 rounded-lg">确认标记</button>
+        </div>
 
-    <div class="modal-overlay" id="confirmModal">
+        <!-- Single Photo Viewer -->
+        <div id="viewerContainer" class="viewer-container">
+            <div id="viewerWrapper" class="viewer-image-wrapper">
+                <div id="aiBadge" class="badge-tag badge-ai-topright">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-500 text-xs"></i> <span id="aiTagText">清晰 92%</span>
+                </div>
+
+                <div id="categoryBadge" class="badge-tag badge-category-bottomleft">
+                    <span id="categoryTagText">美食打卡</span>
+                </div>
+
+                <div id="sizeBadge" class="badge-tag badge-size-bottomright">
+                    <span id="sizeTagText">2.9 MB</span>
+                </div>
+
+                <img id="currentPhoto" src="" alt="Photo" class="viewer-image">
+            </div>
+
+            <div class="progress-bar-container">
+                <div id="progressBarFill" class="progress-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- Grid Viewer -->
+        <div id="gridContainer" class="grid-container hidden"></div>
+
+        <!-- Compare View -->
+        <div id="compareContainer" class="compare-container hidden"></div>
+
+    </main>
+
+    <!-- Bottom Controls Bar -->
+    <footer class="bottom-bar">
+        <button id="btnDelete" class="action-btn btn-delete">
+            <i class="fa-regular fa-trash-can"></i>
+            <span>删除</span>
+        </button>
+
+        <button id="btnUndo" class="action-btn">
+            <i class="fa-solid fa-arrow-rotate-left"></i>
+            <span>撤销</span>
+        </button>
+
+        <button id="btnCompare" class="action-btn btn-compare">
+            <i class="fa-solid fa-border-all"></i>
+            <span id="compareBtnText">同屏对比</span>
+        </button>
+
+        <button id="btnNextGroup" class="action-btn">
+            <i class="fa-solid fa-angles-right"></i>
+            <span>下一组</span>
+        </button>
+
+        <button id="btnKeep" class="action-btn btn-keep">
+            <i class="fa-solid fa-check"></i>
+            <span>保留</span>
+        </button>
+    </footer>
+
+    <!-- Recycle Bin Modal -->
+    <div id="recycleBinModal" class="modal-overlay">
         <div class="modal-sheet">
-            <h3>🗑 彻底删除</h3>
-            <p id="confirmText">将永久删除回收站中的照片。</p>
-            <div class="modal-btns">
-                <button class="btn-cancel" id="btnCancelConfirm">取消</button>
-                <button class="btn-danger" id="btnConfirmDelete">确认删除</button>
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-stone-800">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-bold text-stone-100">待清理回收站</h3>
+                    <span id="binCountTag" class="text-xs bg-rose-950 text-rose-300 px-2 py-0.5 rounded-full border border-rose-800/50">0 张</span>
+                </div>
+                <button id="btnCloseBin" class="text-stone-400 text-lg p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="binList" class="grid grid-cols-3 gap-2 max-h-[45vh] overflow-y-auto mb-4 p-1"></div>
+
+            <div class="space-y-2 pt-2">
+                <div id="binStats" class="text-xs text-stone-400 text-center mb-3">
+                    预估可释放空间: <span id="savedSpaceText" class="text-emerald-400 font-bold">0 MB</span>
+                </div>
+                <button id="btnConfirmFinalDelete" class="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-rose-950/40 transition">
+                    彻底清理并释放空间
+                </button>
             </div>
         </div>
     </div>
 
-    <div class="settings-modal" id="settingsModal">
-        <div class="settings-card">
-            <h3>⚙️ 照片排序</h3>
-            <div class="option" data-mode="smart">
-                <span>🧠 智能分组（推荐）<br><small style="color:#999;">相似照片放一组，组内随机</small></span>
-                <div class="radio active"></div>
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-stone-800">
+                <h3 class="text-base font-bold text-stone-100">清理与推送设置</h3>
+                <button id="btnCloseSettings" class="text-stone-400 text-lg p-1"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="option" data-mode="random">
-                <span>🎲 完全随机<br><small style="color:#999;">所有照片打乱，随机分组</small></span>
-                <div class="radio"></div>
+
+            <div class="space-y-4 text-sm text-stone-300">
+                <div class="flex items-center justify-between p-3 bg-stone-800/60 rounded-xl">
+                    <div>
+                        <div class="font-medium text-stone-100">组内照片排序模式</div>
+                        <div class="text-xs text-stone-400">打乱相同场景，降低审美疲劳</div>
+                    </div>
+                    <select id="sortModeSelect" class="bg-stone-700 text-stone-100 text-xs px-3 py-1.5 rounded-lg border border-stone-600 outline-none">
+                        <option value="random">随机混排 (推荐)</option>
+                        <option value="smart">顺序组队</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-stone-800/60 rounded-xl">
+                    <div>
+                        <div class="font-medium text-stone-100">AI 智能清晰度识别</div>
+                        <div class="text-xs text-stone-400">标出模糊照片与连拍推荐</div>
+                    </div>
+                    <input type="checkbox" id="aiToggle" checked class="w-4 h-4 accent-amber-500 rounded">
+                </div>
             </div>
-            <button class="btn-cancel" id="btnCloseSettings" style="margin-top:16px;width:100%;padding:14px;border-radius:14px;border:none;background:var(--surface-light);color:var(--text);font-size:1em;font-weight:600;cursor:pointer;">关闭</button>
         </div>
     </div>
-
-    <input type="file" id="fileInput" multiple accept="image/*,image/heic,image/heif" style="display:none;">
 
     <script>
-        (function() {
-            const state = {
-                photos: [],
-                groups: [],
-                currentGroupIndex: 0,
-                currentPhotoIndex: 0,
-                viewMode: 'viewer',
-                sortMode: 'smart',
-                compareSelection: [],
-                compareMarks: {},
-                trashBin: [],
-                scale: 1,
-                isZoomed: false,
-                lastTapTime: 0,
-                gestureLocked: false,
-            };
-
-            const $ = (sel) => document.querySelector(sel);
-            const $$ = (sel) => document.querySelectorAll(sel);
-
-            const viewerContainer = $('#viewerContainer');
-            const viewerImage = $('#viewerImage');
-            const viewerWrapper = $('#viewerWrapper');
-            const markIndicator = $('#markIndicator');
-            const livePhotoBadge = $('#livePhotoBadge');
-            const progressFill = $('#progressFill');
-            const gridContainer = $('#gridContainer');
-            const compareContainer = $('#compareContainer');
-            const uploadZone = $('#uploadZone');
-            const groupInfo = $('#groupInfo');
-            const toast = $('#toast');
-            const fileInput = $('#fileInput');
-            const confirmModal = $('#confirmModal');
-            const settingsModal = $('#settingsModal');
-            const compareSelectHint = $('#compareSelectHint');
-
-            function generateId() {
-                return Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-            }
-
-            function shuffle(arr) {
-                const a = [...arr];
-                for (let i = a.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [a[i], a[j]] = [a[j], a[i]];
-                }
-                return a;
-            }
-
-            function showToast(msg, duration = 1500) {
-                toast.textContent = msg;
-                toast.classList.add('show');
-                clearTimeout(toast._timeout);
-                toast._timeout = setTimeout(() => toast.classList.remove('show'), duration);
-            }
-
-            function getCurrentPhoto() {
-                const group = state.groups[state.currentGroupIndex];
-                if (!group || group.length === 0) return null;
-                const photoId = group[state.currentPhotoIndex];
-                return state.photos.find(p => p.id === photoId) || null;
-            }
-
-            function updateProgress() {
-                const group = state.groups[state.currentGroupIndex] || [];
-                const total = group.length;
-                const marked = group.filter(id => {
-                    const p = state.photos.find(ph => ph.id === id);
-                    return p && p.status !== 'unmarked';
-                }).length;
-                const pct = total > 0 ? (marked / total) * 100 : 0;
-                progressFill.style.width = pct + '%';
-                groupInfo.textContent =
-                    `第 ${state.currentGroupIndex + 1}/${state.groups.length} 组 · ${marked}/${total} 已处理`;
-            }
-
-            function showMarkIndicator(type) {
-                markIndicator.className = 'mark-indicator ' + type;
-                if (type === 'keep') markIndicator.textContent = '✓ 保留';
-                else if (type === 'delete') markIndicator.textContent = '✕ 删除';
-                else if (type === 'undo') markIndicator.textContent = '↩ 已撤销';
-                setTimeout(() => { markIndicator.className = 'mark-indicator'; }, 600);
-            }
-
-            function buildGroups() {
-                const unmarked = state.photos.filter(p => p.status === 'unmarked');
-                if (unmarked.length === 0) {
-                    state.groups = [];
-                    return;
-                }
-                let groupedPhotos;
-                if (state.sortMode === 'smart') {
-                    const sorted = [...unmarked].sort((a, b) => {
-                        const nameA = a.file.name.replace(/\d+/g, '').toLowerCase();
-                        const nameB = b.file.name.replace(/\d+/g, '').toLowerCase();
-                        return nameA.localeCompare(nameB);
-                    });
-                    const chunks = [];
-                    for (let i = 0; i < sorted.length; i += 10) {
-                        const chunk = sorted.slice(i, i + 10);
-                        chunks.push(shuffle(chunk).map(p => p.id));
-                    }
-                    groupedPhotos = chunks;
-                } else {
-                    const shuffled = shuffle(unmarked).map(p => p.id);
-                    const chunks = [];
-                    for (let i = 0; i < shuffled.length; i += 10) {
-                        chunks.push(shuffled.slice(i, i + 10));
-                    }
-                    groupedPhotos = chunks;
-                }
-                state.groups = groupedPhotos;
-                state.currentGroupIndex = 0;
-                state.currentPhotoIndex = 0;
-            }
-
-            function renderViewer() {
-                const photo = getCurrentPhoto();
-                if (!photo) {
-                    checkGroupComplete();
-                    return;
-                }
-                viewerImage.src = photo.url;
-                viewerImage.style.transform = 'scale(1)';
-                state.scale = 1;
-                state.isZoomed = false;
-                if (photo.isLive) {
-                    livePhotoBadge.classList.add('show');
-                } else {
-                    livePhotoBadge.classList.remove('show');
-                }
-                updateProgress();
-            }
-
-            function renderGrid() {
-                const group = state.groups[state.currentGroupIndex] || [];
-                const isCompareSelect = state.viewMode === 'compare-select';
-
-                gridContainer.innerHTML = group.map(id => {
-                    const photo = state.photos.find(p => p.id === id);
-                    if (!photo) return '';
-                    let markClass = '';
-                    let extraBadge = '';
-
-                    if (isCompareSelect) {
-                        if (state.compareSelection.includes(id)) {
-                            markClass = 'compare-selected';
-                            extraBadge =
-                                `<div class="compare-check">${state.compareSelection.indexOf(id) + 1}</div>`;
-                        } else {
-                            markClass = 'compare-selectable';
-                        }
-                    } else {
-                        if (photo.status === 'keep') markClass = 'marked-keep';
-                        else if (photo.status === 'delete') markClass = 'marked-delete';
-                    }
-
-                    const markDot = (!isCompareSelect && photo.status !== 'unmarked') ?
-                        (photo.status === 'keep' ? '✓' : '✕') : '';
-
-                    return `
-                        <div class="grid-item ${markClass}" data-id="${id}">
-                            <img src="${photo.url}" alt="" loading="lazy">
-                            ${extraBadge}
-                            ${markDot ? `<div class="mark-dot">${markDot}</div>` : ''}
-                        </div>`;
-                }).join('');
-
-                gridContainer.querySelectorAll('.grid-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        const id = item.dataset.id;
-                        if (state.viewMode === 'compare-select') {
-                            toggleCompareSelection(id, item);
-                        } else {
-                            const idx = group.indexOf(id);
-                            if (idx >= 0) {
-                                state.currentPhotoIndex = idx;
-                                switchToViewer();
-                            }
-                        }
-                    });
+        const SAMPLE_CATEGORIES = ['风景连拍', '人物近照', '美食打卡', '宠物时刻', '文档发票'];
+        
+        function generateDemoPhotos() {
+            const photos = [];
+            const ids = [1011, 1025, 1062, 1069, 1074, 1084, 1020, 1024, 103, 1040, 1060, 1080, 1027, 1035, 1043, 1050, 1055, 1068, 1076, 1082];
+            
+            ids.forEach((id, index) => {
+                const groupIndex = Math.floor(index / 10) + 1;
+                const isBlur = index % 7 === 2;
+                const isLive = index % 3 === 0;
+                
+                photos.push({
+                    id: `img_${id}_${index}`,
+                    url: `https://picsum.photos/id/${id}/800/1000`,
+                    thumbUrl: `https://picsum.photos/id/${id}/300/300`,
+                    sizeMB: (1.5 + Math.random() * 3.5).toFixed(1),
+                    group: groupIndex,
+                    isLive: isLive,
+                    isBlur: isBlur,
+                    blurScore: isBlur ? (45 + Math.floor(Math.random() * 15)) : (85 + Math.floor(Math.random() * 14)),
+                    aiRecommendation: isBlur ? 'suggest_delete' : (index % 4 === 0 ? 'suggest_keep' : 'none'),
+                    category: SAMPLE_CATEGORIES[index % SAMPLE_CATEGORIES.length],
+                    markedStatus: null
                 });
-                updateProgress();
+            });
+            return photos;
+        }
+
+        let state = {
+            allPhotos: generateDemoPhotos(),
+            currentGroupIndex: 1,
+            groupPhotoIds: [],
+            activePhotoIndexInGroup: 0,
+            viewMode: 'single',
+            historyStack: [],
+            compareSelectedIds: [],
+            compareKeepIds: [],
+            sortMode: 'random',
+            aiEnabled: true
+        };
+
+        const elements = {
+            viewerContainer: document.getElementById('viewerContainer'),
+            gridContainer: document.getElementById('gridContainer'),
+            compareContainer: document.getElementById('compareContainer'),
+            currentPhoto: document.getElementById('currentPhoto'),
+            viewerWrapper: document.getElementById('viewerWrapper'),
+            btnToggleView: document.getElementById('btnToggleView'),
+            viewIcon: document.getElementById('viewIcon'),
+            groupStatus: document.getElementById('groupStatus'),
+            progressBarFill: document.getElementById('progressBarFill'),
+            markIndicator: document.getElementById('markIndicator'),
+            indicatorIcon: document.getElementById('indicatorIcon'),
+            indicatorText: document.getElementById('indicatorText'),
+            liveBadge: document.getElementById('liveBadge'),
+            aiBadge: document.getElementById('aiBadge'),
+            aiTagText: document.getElementById('aiTagText'),
+            trashBadge: document.getElementById('trashBadge'),
+            btnRecycleBin: document.getElementById('btnRecycleBin'),
+            recycleBinModal: document.getElementById('recycleBinModal'),
+            btnCloseBin: document.getElementById('btnCloseBin'),
+            binList: document.getElementById('binList'),
+            binCountTag: document.getElementById('binCountTag'),
+            savedSpaceText: document.getElementById('savedSpaceText'),
+            btnConfirmFinalDelete: document.getElementById('btnConfirmFinalDelete'),
+            btnSettings: document.getElementById('btnSettings'),
+            settingsModal: document.getElementById('settingsModal'),
+            btnCloseSettings: document.getElementById('btnCloseSettings'),
+            btnKeep: document.getElementById('btnKeep'),
+            btnDelete: document.getElementById('btnDelete'),
+            btnUndo: document.getElementById('btnUndo'),
+            btnCompare: document.getElementById('btnCompare'),
+            btnNextGroup: document.getElementById('btnNextGroup'),
+            compareBanner: document.getElementById('compareBanner'),
+            btnCancelCompareSelect: document.getElementById('btnCancelCompareSelect'),
+            compareActionBar: document.getElementById('compareActionBar'),
+            btnExitCompare: document.getElementById('btnExitCompare'),
+            btnApplyCompare: document.getElementById('btnApplyCompare')
+        };
+
+        function initGroup(groupNum) {
+            state.currentGroupIndex = groupNum;
+            let groupPhotos = state.allPhotos.filter(p => p.group === groupNum);
+            
+            if (groupPhotos.length === 0) {
+                const availableGroups = [...new Set(state.allPhotos.map(p => p.group))];
+                if (availableGroups.length > 0) {
+                    state.currentGroupIndex = availableGroups[0];
+                    groupPhotos = state.allPhotos.filter(p => p.group === state.currentGroupIndex);
+                } else {
+                    showToast('所有的照片均已清理完成！', 'undo');
+                }
             }
 
-            // 修复1：只更新单张卡片，不重新渲染整个网格
-            function toggleCompareSelection(id, gridItemElement) {
-                const idx = state.compareSelection.indexOf(id);
-                if (idx >= 0) {
-                    state.compareSelection.splice(idx, 1);
-                } else {
-                    if (state.compareSelection.length >= 4) {
-                        showToast('最多选择 4 张照片进行对比');
-                        return;
-                    }
-                    state.compareSelection.push(id);
+            let ids = groupPhotos.map(p => p.id);
+            if (state.sortMode === 'random') {
+                ids = ids.sort(() => Math.random() - 0.5);
+            }
+            state.groupPhotoIds = ids;
+            state.activePhotoIndexInGroup = 0;
+            state.compareSelectedIds = [];
+            
+            updateUI();
+        }
+
+        function getCurrentPhoto() {
+            if (state.groupPhotoIds.length === 0) return null;
+            const currentId = state.groupPhotoIds[state.activePhotoIndexInGroup];
+            return state.allPhotos.find(p => p.id === currentId);
+        }
+
+        function updateUI() {
+            const currentPhoto = getCurrentPhoto();
+            const groupTotal = state.groupPhotoIds.length;
+            
+            elements.groupStatus.textContent = `第 ${state.currentGroupIndex}/2 组 (${state.activePhotoIndexInGroup + 1}/${groupTotal || 1})`;
+            
+            const deletedPhotos = state.allPhotos.filter(p => p.markedStatus === 'delete');
+            if (deletedPhotos.length > 0) {
+                elements.trashBadge.textContent = deletedPhotos.length;
+                elements.trashBadge.classList.remove('hidden');
+            } else {
+                elements.trashBadge.classList.add('hidden');
+            }
+
+            if (currentPhoto && state.viewMode === 'single') {
+                elements.currentPhoto.src = currentPhoto.url;
+                
+                elements.currentPhoto.className = 'viewer-image';
+                if (currentPhoto.markedStatus === 'delete') {
+                    elements.currentPhoto.classList.add('marked-delete');
+                } else if (currentPhoto.markedStatus === 'keep') {
+                    elements.currentPhoto.classList.add('marked-keep');
                 }
 
-                // 更新已选中的编号
-                updateAllCompareBadges();
-                updateCompareSelectButton();
+                document.getElementById('categoryTagText').textContent = currentPhoto.category || '美食打卡';
+                document.getElementById('sizeTagText').textContent = `${currentPhoto.sizeMB} MB`;
+
+                if (state.aiEnabled) {
+                    elements.aiBadge.style.display = 'flex';
+                    elements.aiTagText.textContent = `清晰 ${currentPhoto.blurScore}%`;
+                } else {
+                    elements.aiBadge.style.display = 'none';
+                }
+
+                const progressPct = ((state.activePhotoIndexInGroup + 1) / groupTotal) * 100;
+                elements.progressBarFill.style.width = `${progressPct}%`;
             }
 
-            // 修复1：局部更新所有勾选编号（不重新渲染图片）
-            function updateAllCompareBadges() {
-                const group = state.groups[state.currentGroupIndex] || [];
-                group.forEach(id => {
-                    const item = gridContainer.querySelector(`.grid-item[data-id="${id}"]`);
-                    if (!item) return;
-                    const selectedIdx = state.compareSelection.indexOf(id);
-                    if (selectedIdx >= 0) {
-                        item.classList.add('compare-selected');
-                        item.classList.remove('compare-selectable');
-                        // 更新或创建编号角标
-                        let badge = item.querySelector('.compare-check');
-                        if (!badge) {
-                            badge = document.createElement('div');
-                            badge.className = 'compare-check';
-                            item.appendChild(badge);
-                        }
-                        badge.textContent = selectedIdx + 1;
-                        // 移除旧 mark-dot
-                        const oldDot = item.querySelector('.mark-dot');
-                        if (oldDot) oldDot.remove();
-                    } else {
-                        item.classList.remove('compare-selected');
-                        item.classList.add('compare-selectable');
-                        const badge = item.querySelector('.compare-check');
-                        if (badge) badge.remove();
-                    }
-                });
+            if (state.viewMode === 'single') {
+                elements.viewerContainer?.classList.remove('hidden');
+                elements.gridContainer?.classList.add('hidden');
+                elements.compareContainer?.classList.add('hidden');
+                elements.compareBanner?.classList.add('hidden');
+                elements.compareActionBar?.classList.add('hidden');
+                elements.viewIcon.className = 'fa-solid fa-grip';
+            } else if (state.viewMode === 'grid' || state.viewMode === 'compareSelect') {
+                elements.viewerContainer?.classList.add('hidden');
+                elements.gridContainer?.classList.remove('hidden');
+                elements.compareContainer?.classList.add('hidden');
+                elements.compareActionBar?.classList.add('hidden');
+                elements.viewIcon.className = 'fa-solid fa-expand';
+                
+                if (state.viewMode === 'compareSelect') {
+                    elements.compareBanner?.classList.remove('hidden');
+                } else {
+                    elements.compareBanner?.classList.add('hidden');
+                }
+
+                renderGridItems();
+            } else if (state.viewMode === 'compareView') {
+                elements.viewerContainer?.classList.add('hidden');
+                elements.gridContainer?.classList.add('hidden');
+                elements.compareContainer?.classList.remove('hidden');
+                elements.compareBanner?.classList.add('hidden');
+                elements.compareActionBar?.classList.remove('hidden');
+                
+                renderCompareView();
             }
 
-            function updateCompareSelectButton() {
-                const count = state.compareSelection.length;
-                const btnCompare = $('#btnCompare');
+            if (state.viewMode === 'compareSelect') {
+                const count = state.compareSelectedIds.length;
                 if (count >= 2) {
-                    btnCompare.innerHTML = '<span class="icon">⊡</span>开始对比';
-                    btnCompare.style.color = 'var(--accent-warn)';
+                    document.getElementById('compareBtnText').textContent = `开始对比 (${count})`;
+                    elements.btnCompare.classList.add('active');
                 } else {
-                    btnCompare.innerHTML = '<span class="icon">⊡</span>对比';
-                    btnCompare.style.color = 'var(--text-secondary)';
+                    document.getElementById('compareBtnText').textContent = `选择2-4张`;
+                    elements.btnCompare.classList.remove('active');
                 }
+            } else {
+                document.getElementById('compareBtnText').textContent = `同屏对比`;
+                elements.btnCompare.classList.remove('active');
             }
+        }
 
-            function enterCompareSelect() {
-                const group = state.groups[state.currentGroupIndex] || [];
-                const unmarked = group.filter(id => {
-                    const p = state.photos.find(ph => ph.id === id);
-                    return p && p.status === 'unmarked';
-                });
-                if (unmarked.length < 2) {
-                    showToast('需要至少 2 张未标记照片才能对比');
-                    return;
-                }
-                state.viewMode = 'compare-select';
-                state.compareSelection = [];
-                updateCompareSelectButton();
-                viewerContainer.classList.add('hidden');
-                gridContainer.classList.remove('hidden');
-                compareContainer.classList.add('hidden');
-                uploadZone.classList.add('hidden');
-                compareSelectHint.classList.add('show');
-                $('#btnGridToggle').textContent = '▣';
-                renderGrid();
-            }
-
-            function startCompare() {
-                if (state.compareSelection.length < 2) {
-                    showToast('请至少选择 2 张照片');
-                    return;
-                }
-                state.viewMode = 'compare';
-                // 修复2：默认全部不勾选
-                state.compareMarks = {};
-                state.compareSelection.forEach(id => {
-                    state.compareMarks[id] = 'delete';
-                });
-                compareSelectHint.classList.remove('show');
-                viewerContainer.classList.add('hidden');
-                gridContainer.classList.add('hidden');
-                compareContainer.classList.remove('hidden');
-                uploadZone.classList.add('hidden');
-                renderCompare();
-            }
-
-            function renderCompare() {
-                const photos = state.compareSelection.map(id => state.photos.find(p => p.id === id))
-                    .filter(Boolean);
-                const items = photos.slice(0, 4);
-
-                let html = `
-                    <div class="compare-top-bar">
-                        <button class="btn-cancel-compare" id="btnCancelCompare">← 返回</button>
-                        <span>👆 点击勾选要保留的照片</span>
-                        <button class="btn-done" id="btnDoneCompare">完成对比</button>
-                    </div>`;
-
-                items.forEach((photo, i) => {
-                    const isKept = state.compareMarks[photo.id] === 'keep';
-                    const markClass = isKept ? 'selected-compare-keep' : '';
-
-                    html += `
-                        <div class="compare-item ${markClass}" data-id="${photo.id}">
-                            <img src="${photo.url}" alt="">
-                            <div class="compare-label">#${i + 1}</div>
-                            <div class="compare-check-mark">✓</div>
-                        </div>`;
-                });
-
-                for (let i = items.length; i < 4; i++) {
-                    html += '<div class="compare-item" style="background:#111;"></div>';
-                }
-
-                compareContainer.innerHTML = html;
-
-                $('#btnCancelCompare')?.addEventListener('click', () => {
-                    state.compareMarks = {};
-                    enterCompareSelect();
-                    renderGrid();
-                });
-
-                $('#btnDoneCompare')?.addEventListener('click', () => {
-                    applyCompareMarks();
-                });
-
-                compareContainer.querySelectorAll('.compare-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        const id = item.dataset.id;
-                        if (!id) return;
-                        if (state.compareMarks[id] === 'keep') {
-                            state.compareMarks[id] = 'delete';
-                        } else {
-                            state.compareMarks[id] = 'keep';
-                        }
-                        renderCompare();
-                    });
-                });
-            }
-
-            function applyCompareMarks() {
-                let keepCount = 0;
-                let deleteCount = 0;
-
-                state.compareSelection.forEach(id => {
-                    const p = state.photos.find(ph => ph.id === id);
-                    if (!p) return;
-                    if (state.compareMarks[id] === 'keep') {
-                        p.status = 'keep';
-                        state.trashBin = state.trashBin.filter(tid => tid !== id);
-                        keepCount++;
-                    } else {
-                        p.status = 'delete';
-                        if (!state.trashBin.includes(p.id)) {
-                            state.trashBin.push(p.id);
-                        }
-                        deleteCount++;
-                    }
-                });
-
-                state.compareMarks = {};
-                state.compareSelection = [];
-                updateCompareSelectButton();
-                showToast(`保留 ${keepCount} 张，删除 ${deleteCount} 张`);
-                exitCompare();
-            }
-
-            function exitCompare() {
-                state.viewMode = 'viewer';
-                state.compareSelection = [];
-                state.compareMarks = {};
-                compareContainer.classList.add('hidden');
-                compareSelectHint.classList.remove('show');
-                updateCompareSelectButton();
-                $('#btnCompare').style.color = 'var(--text-secondary)';
-                checkGroupComplete();
-                if (state.groups.length > 0 && state.groups[state.currentGroupIndex]?.length > 0) {
-                    switchToViewer();
-                }
-            }
-
-            function switchToViewer() {
-                state.viewMode = 'viewer';
-                viewerContainer.classList.remove('hidden');
-                gridContainer.classList.add('hidden');
-                compareContainer.classList.add('hidden');
-                compareSelectHint.classList.remove('show');
-                uploadZone.classList.add('hidden');
-                $('#btnGridToggle').textContent = '⊞';
-                state.compareSelection = [];
-                state.compareMarks = {};
-                updateCompareSelectButton();
-                $('#btnCompare').style.color = 'var(--text-secondary)';
-                renderViewer();
-            }
-
-            function switchToGrid() {
-                state.viewMode = 'grid';
-                viewerContainer.classList.add('hidden');
-                gridContainer.classList.remove('hidden');
-                compareContainer.classList.add('hidden');
-                compareSelectHint.classList.remove('show');
-                uploadZone.classList.add('hidden');
-                $('#btnGridToggle').textContent = '▣';
-                state.compareSelection = [];
-                state.compareMarks = {};
-                updateCompareSelectButton();
-                $('#btnCompare').style.color = 'var(--text-secondary)';
-                renderGrid();
-            }
-
-            function markCurrent(status) {
-                const photo = getCurrentPhoto();
+        function renderGridItems() {
+            elements.gridContainer.innerHTML = '';
+            
+            state.groupPhotoIds.forEach((photoId, idx) => {
+                const photo = state.allPhotos.find(p => p.id === photoId);
                 if (!photo) return;
-                if (photo.status === status) {
-                    photo.status = 'unmarked';
-                    state.trashBin = state.trashBin.filter(id => id !== photo.id);
-                    showMarkIndicator('undo');
-                } else {
-                    if (photo.status === 'delete') {
-                        state.trashBin = state.trashBin.filter(id => id !== photo.id);
-                    }
-                    photo.status = status;
-                    if (status === 'delete') {
-                        state.trashBin.push(photo.id);
-                    }
-                    showMarkIndicator(status);
-                }
-                const group = state.groups[state.currentGroupIndex];
-                if (state.currentPhotoIndex < group.length - 1) {
-                    state.currentPhotoIndex++;
-                }
-                renderViewer();
-                updateProgress();
-                checkGroupComplete();
-            }
 
-            function undoLast() {
-                const group = state.groups[state.currentGroupIndex] || [];
-                let lastMarked = null;
-                for (let i = group.length - 1; i >= 0; i--) {
-                    const p = state.photos.find(ph => ph.id === group[i]);
-                    if (p && p.status !== 'unmarked') {
-                        lastMarked = p;
-                        break;
+                const itemEl = document.createElement('div');
+                itemEl.className = 'grid-item';
+                
+                if (photo.markedStatus === 'keep') itemEl.classList.add('marked-keep');
+                if (photo.markedStatus === 'delete') itemEl.classList.add('marked-delete');
+
+                if (state.viewMode === 'compareSelect') {
+                    itemEl.classList.add('compare-selectable');
+                    const selectedIdx = state.compareSelectedIds.indexOf(photoId);
+                    if (selectedIdx !== -1) {
+                        itemEl.classList.add('compare-selected');
                     }
                 }
-                if (lastMarked) {
-                    lastMarked.status = 'unmarked';
-                    state.trashBin = state.trashBin.filter(id => id !== lastMarked.id);
-                    state.currentPhotoIndex = group.indexOf(lastMarked.id);
-                    showMarkIndicator('undo');
-                    renderViewer();
-                    updateProgress();
-                } else {
-                    showToast('没有可撤销的标记');
-                }
-            }
 
-            function navigate(direction) {
-                const group = state.groups[state.currentGroupIndex];
-                if (!group || group.length === 0) return;
-                if (direction === 'next') {
-                    state.currentPhotoIndex = (state.currentPhotoIndex + 1) % group.length;
-                } else {
-                    state.currentPhotoIndex = (state.currentPhotoIndex - 1 + group.length) % group.length;
-                }
-                renderViewer();
-                updateProgress();
-            }
+                const img = document.createElement('img');
+                img.src = photo.thumbUrl;
+                itemEl.appendChild(img);
 
-            function checkGroupComplete() {
-                const group = state.groups[state.currentGroupIndex] || [];
-                const allMarked = group.every(id => {
-                    const p = state.photos.find(ph => ph.id === id);
-                    return p && p.status !== 'unmarked';
-                });
-                if (allMarked && group.length > 0) {
-                    showToast('🎉 本组处理完成！进入下一组', 2000);
-                    setTimeout(() => nextGroup(), 1200);
+                const badge = document.createElement('div');
+                badge.className = 'status-badge';
+                
+                if (state.viewMode === 'compareSelect') {
+                    const selIdx = state.compareSelectedIds.indexOf(photoId);
+                    if (selIdx !== -1) {
+                        badge.textContent = selIdx + 1;
+                        itemEl.appendChild(badge);
+                    }
+                } else if (photo.markedStatus) {
+                    badge.innerHTML = photo.markedStatus === 'keep' ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-xmark"></i>';
+                    itemEl.appendChild(badge);
                 }
-                const allGroupsDone = state.groups.every(g =>
-                    g.every(id => {
-                        const p = state.photos.find(ph => ph.id === id);
-                        return p && p.status !== 'unmarked';
-                    })
-                );
-                if (allGroupsDone && state.groups.length > 0 && state.trashBin.length > 0) {
-                    setTimeout(() => { showConfirmDelete(); }, 2000);
-                }
-            }
 
-            function nextGroup() {
-                if (state.currentGroupIndex < state.groups.length - 1) {
-                    state.currentGroupIndex++;
-                    state.currentPhotoIndex = 0;
-                    switchToViewer();
-                } else {
-                    if (state.trashBin.length > 0) {
-                        showConfirmDelete();
+                itemEl.addEventListener('click', () => {
+                    if (state.viewMode === 'compareSelect') {
+                        toggleCompareSelection(photoId);
                     } else {
-                        showToast('✅ 所有照片已处理完毕！');
-                        groupInfo.textContent = '全部完成';
+                        state.activePhotoIndexInGroup = idx;
+                        state.viewMode = 'single';
+                        updateUI();
                     }
+                });
+
+                elements.gridContainer.appendChild(itemEl);
+            });
+        }
+
+        function toggleCompareSelection(photoId) {
+            const index = state.compareSelectedIds.indexOf(photoId);
+            if (index !== -1) {
+                state.compareSelectedIds.splice(index, 1);
+            } else {
+                if (state.compareSelectedIds.length >= 4) {
+                    showToast('最多选择 4 张照片进行对比', 'undo');
+                    return;
                 }
+                state.compareSelectedIds.push(photoId);
             }
+            updateUI();
+        }
 
-            function showConfirmDelete() {
-                const count = state.trashBin.length;
-                if (count === 0) {
-                    showToast('回收站为空');
-                    return;
-                }
-                $('#confirmText').textContent =
-                    `回收站中有 ${count} 张照片。在网页版中，这些照片不会从您的设备中删除。在原生 App 版本中，此操作将永久删除这些照片。`;
-                confirmModal.classList.add('show');
-            }
+        function renderCompareView() {
+            elements.compareContainer.innerHTML = '';
+            
+            state.compareSelectedIds.forEach((photoId) => {
+                const photo = state.allPhotos.find(p => p.id === photoId);
+                if (!photo) return;
 
-            let touchStartX = 0;
-            let touchStartY = 0;
-            let touchStartTime = 0;
-            let initialPinchDistance = 0;
-            let initialScale = 1;
-            let longPressTimer = null;
-            let isLongPress = false;
-            let isPinching = false;
+                const compItem = document.createElement('div');
+                compItem.className = 'compare-item';
+                
+                const isKeep = state.compareKeepIds.includes(photoId);
+                if (isKeep) compItem.classList.add('keep-selected');
 
-            viewerWrapper.addEventListener('touchstart', (e) => {
-                if (state.gestureLocked) return;
+                const img = document.createElement('img');
+                img.src = photo.url;
+                compItem.appendChild(img);
 
-                if (e.touches.length === 1) {
-                    touchStartX = e.touches[0].clientX;
-                    touchStartY = e.touches[0].clientY;
-                    touchStartTime = Date.now();
-                    isLongPress = false;
-                    const photo = getCurrentPhoto();
-                    if (photo && photo.isLive) {
-                        longPressTimer = setTimeout(() => {
-                            isLongPress = true;
-                            playLivePhoto(photo);
-                        }, 500);
-                    }
-                } else if (e.touches.length === 2) {
-                    isPinching = true;
-                    initialPinchDistance = getPinchDistance(e.touches);
-                    initialScale = state.scale;
-                    clearTimeout(longPressTimer);
-                }
-            }, { passive: false });
+                const checkOverlay = document.createElement('div');
+                checkOverlay.className = 'check-overlay';
+                checkOverlay.innerHTML = '<i class="fa-solid fa-check"></i>';
+                compItem.appendChild(checkOverlay);
 
-            viewerWrapper.addEventListener('touchmove', (e) => {
-                if (state.gestureLocked) return;
-
-                if (isPinching && e.touches.length === 2) {
-                    e.preventDefault();
-                    const currentDistance = getPinchDistance(e.touches);
-                    const newScale = initialScale * (currentDistance / initialPinchDistance);
-                    state.scale = Math.max(1, Math.min(5, newScale));
-                    state.isZoomed = state.scale > 1.05;
-                    viewerImage.style.transform = `scale(${state.scale})`;
-                    viewerImage.classList.toggle('zoomed', state.isZoomed);
-                }
-                if (e.touches.length > 1) {
-                    clearTimeout(longPressTimer);
-                }
-            }, { passive: false });
-
-            viewerWrapper.addEventListener('touchend', (e) => {
-                clearTimeout(longPressTimer);
-
-                if (isPinching) {
-                    isPinching = false;
-                    state.gestureLocked = true;
-                    setTimeout(() => {
-                        state.gestureLocked = false;
-                    }, 350);
-
-                    if (state.scale < 1.05) {
-                        state.scale = 1;
-                        state.isZoomed = false;
-                        viewerImage.style.transform = 'scale(1)';
-                        viewerImage.classList.remove('zoomed');
-                    }
-                    return;
-                }
-
-                if (state.gestureLocked) return;
-
-                if (isLongPress) {
-                    stopLivePhoto();
-                    return;
-                }
-
-                if (state.isZoomed) {
-                    const now = Date.now();
-                    if (now - state.lastTapTime < 300) {
-                        state.scale = 1;
-                        state.isZoomed = false;
-                        viewerImage.style.transform = 'scale(1)';
-                        viewerImage.classList.remove('zoomed');
-                    }
-                    state.lastTapTime = now;
-                    return;
-                }
-
-                const dx = touchStartX - (e.changedTouches[0]?.clientX || touchStartX);
-                const dy = touchStartY - (e.changedTouches[0]?.clientY || touchStartY);
-                const absDx = Math.abs(dx);
-                const absDy = Math.abs(dy);
-
-                if (absDy > absDx && absDy > 80) {
-                    if (dy > 0) {
-                        markCurrent('delete');
+                compItem.addEventListener('click', () => {
+                    const kIdx = state.compareKeepIds.indexOf(photoId);
+                    if (kIdx !== -1) {
+                        state.compareKeepIds.splice(kIdx, 1);
                     } else {
-                        markCurrent('keep');
+                        state.compareKeepIds.push(photoId);
                     }
-                } else if (absDx > absDy && absDx > 50) {
-                    if (dx > 0) {
-                        navigate('next');
-                    } else {
-                        navigate('prev');
-                    }
-                }
+                    renderCompareView();
+                });
+
+                elements.compareContainer.appendChild(compItem);
+            });
+        }
+
+        function markCurrentPhoto(status) {
+            const currentPhoto = getCurrentPhoto();
+            if (!currentPhoto) return;
+
+            state.historyStack.push({
+                photoId: currentPhoto.id,
+                prevStatus: currentPhoto.markedStatus,
+                groupIndex: state.currentGroupIndex,
+                photoIndex: state.activePhotoIndexInGroup
             });
 
-            function getPinchDistance(touches) {
-                const dx = touches[0].clientX - touches[1].clientX;
-                const dy = touches[0].clientY - touches[1].clientY;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-
-            let livePhotoVideo = null;
-
-            function playLivePhoto(photo) {
-                if (photo.videoUrl) {
-                    livePhotoVideo = document.createElement('video');
-                    livePhotoVideo.src = photo.videoUrl;
-                    livePhotoVideo.muted = true;
-                    livePhotoVideo.playsInline = true;
-                    livePhotoVideo.style.cssText =
-                        'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:5;';
-                    livePhotoVideo.loop = true;
-                    viewerWrapper.appendChild(livePhotoVideo);
-                    livePhotoVideo.play().catch(() => {});
-                    livePhotoBadge.textContent = 'LIVE ▶';
-                    livePhotoBadge.style.background = 'rgba(255,69,58,0.7)';
+            if (currentPhoto.markedStatus === status) {
+                currentPhoto.markedStatus = null;
+                showToast('已取消标记', 'undo');
+            } else {
+                currentPhoto.markedStatus = status;
+                if (status === 'keep') {
+                    showToast('已标记保留', 'keep');
+                } else {
+                    showToast('已移入回收站', 'delete');
                 }
             }
 
-            function stopLivePhoto() {
-                if (livePhotoVideo) {
-                    livePhotoVideo.pause();
-                    livePhotoVideo.remove();
-                    livePhotoVideo = null;
-                }
-                livePhotoBadge.textContent = 'LIVE';
-                livePhotoBadge.style.background = 'rgba(0,0,0,0.6)';
+            if (state.activePhotoIndexInGroup < state.groupPhotoIds.length - 1) {
+                state.activePhotoIndexInGroup++;
             }
 
-            function importFiles(files) {
-                const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
-                    'image/gif'
-                ];
-                const newPhotos = [];
-                Array.from(files).forEach(file => {
-                    if (validTypes.includes(file.type) ||
-                        file.name.match(/\.(jpg|jpeg|png|webp|heic|heif|gif)$/i)) {
-                        const id = generateId();
-                        const url = URL.createObjectURL(file);
-                        const isLive = file.type === 'image/heic' || file.type === 'image/heif';
-                        newPhotos.push({ id, file, url, status: 'unmarked', isLive, videoUrl: null });
+            updateUI();
+        }
+
+        function undoLastAction() {
+            if (state.historyStack.length === 0) {
+                showToast('没有可撤销的操作', 'undo');
+                return;
+            }
+
+            const lastAction = state.historyStack.pop();
+            const photo = state.allPhotos.find(p => p.id === lastAction.photoId);
+            if (photo) {
+                photo.markedStatus = lastAction.prevStatus;
+                state.currentGroupIndex = lastAction.groupIndex;
+                state.activePhotoIndexInGroup = lastAction.photoIndex;
+                showToast('已撤销上一步', 'undo');
+                updateUI();
+            }
+        }
+
+        function showToast(text, type = 'keep') {
+            if (!elements.markIndicator || !elements.indicatorText || !elements.indicatorIcon) return;
+            elements.indicatorText.textContent = text;
+            elements.markIndicator.className = `mark-indicator ${type} show`;
+            
+            if (type === 'keep') {
+                elements.indicatorIcon.className = 'fa-solid fa-check';
+            } else if (type === 'delete') {
+                elements.indicatorIcon.className = 'fa-solid fa-xmark';
+            } else {
+                elements.indicatorIcon.className = 'fa-solid fa-rotate-left';
+            }
+
+            setTimeout(() => {
+                elements.markIndicator?.classList.remove('show');
+            }, 800);
+        }
+
+        let touchStartY = 0;
+        let touchStartX = 0;
+        let touchMoveY = 0;
+        let touchMoveX = 0;
+        let pressTimer = null;
+
+        elements.viewerWrapper.addEventListener('touchstart', (e) => {
+            if (state.viewMode !== 'single') return;
+            touchStartY = e.touches[0].clientY;
+            touchStartX = e.touches[0].clientX;
+            
+            const currentPhoto = getCurrentPhoto();
+            if (currentPhoto && currentPhoto.isLive) {
+                pressTimer = setTimeout(() => {
+                    elements.currentPhoto.classList.add('live-playing');
+                    showToast('▶ Live Photo 播放中', 'undo');
+                }, 400);
+            }
+        }, { passive: true });
+
+        elements.viewerWrapper.addEventListener('touchmove', (e) => {
+            if (state.viewMode !== 'single') return;
+            touchMoveY = e.touches[0].clientY;
+            touchMoveX = e.touches[0].clientX;
+            
+            const deltaY = touchMoveY - touchStartY;
+            const deltaX = touchMoveX - touchStartX;
+
+            if (Math.abs(deltaY) > 10 || Math.abs(deltaX) > 10) {
+                clearTimeout(pressTimer);
+            }
+
+            if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) < 120) {
+                elements.currentPhoto.style.transform = `translateY(${deltaY * 0.4}px) scale(${1 - Math.abs(deltaY) * 0.001})`;
+            }
+        }, { passive: true });
+
+        elements.viewerWrapper.addEventListener('touchend', (e) => {
+            if (state.viewMode !== 'single') return;
+            clearTimeout(pressTimer);
+            elements.currentPhoto.classList.remove('live-playing');
+            elements.currentPhoto.style.transform = '';
+
+            const deltaY = touchMoveY - touchStartY;
+            const deltaX = touchMoveX - touchStartX;
+
+            if (Math.abs(deltaY) > 60 && Math.abs(deltaY) > Math.abs(deltaX)) {
+                if (deltaY < 0) {
+                    markCurrentPhoto('keep');
+                } else {
+                    markCurrentPhoto('delete');
+                }
+            } else if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                if (deltaX < 0 && state.activePhotoIndexInGroup < state.groupPhotoIds.length - 1) {
+                    state.activePhotoIndexInGroup++;
+                    updateUI();
+                } else if (deltaX > 0 && state.activePhotoIndexInGroup > 0) {
+                    state.activePhotoIndexInGroup--;
+                    updateUI();
+                }
+            }
+
+            touchStartY = 0;
+            touchStartX = 0;
+            touchMoveY = 0;
+            touchMoveX = 0;
+        });
+
+        function openRecycleBin() {
+            const deletedPhotos = state.allPhotos.filter(p => p.markedStatus === 'delete');
+            elements.binList.innerHTML = '';
+            
+            let totalMB = 0;
+            deletedPhotos.forEach(photo => {
+                totalMB += parseFloat(photo.sizeMB);
+                
+                const item = document.createElement('div');
+                item.className = 'relative aspect-square rounded-lg overflow-hidden border border-stone-800 bg-stone-900 group';
+                
+                item.innerHTML = `
+                    <img src="${photo.thumbUrl}" class="w-full h-full object-cover">
+                    <button data-id="${photo.id}" class="btn-restore absolute top-1 right-1 bg-black/60 hover:bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <span class="absolute bottom-1 left-1 bg-black/60 text-[10px] text-stone-300 px-1.5 py-0.5 rounded">${photo.sizeMB}MB</span>
+                `;
+                elements.binList.appendChild(item);
+            });
+
+            elements.binCountTag.textContent = `${deletedPhotos.length} 张`;
+            elements.savedSpaceText.textContent = `${totalMB.toFixed(1)} MB`;
+
+            document.querySelectorAll('.btn-restore').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const photoId = e.currentTarget.getAttribute('data-id');
+                    const photo = state.allPhotos.find(p => p.id === photoId);
+                    if (photo) {
+                        photo.markedStatus = null;
+                        openRecycleBin();
+                        updateUI();
                     }
                 });
-                if (newPhotos.length > 0) {
-                    state.photos.push(...newPhotos);
-                    buildGroups();
-                    uploadZone.classList.add('hidden');
-                    switchToViewer();
-                    showToast(`已导入 ${newPhotos.length} 张照片`);
+            });
+
+            elements.recycleBinModal.classList.add('show');
+        }
+
+        elements.btnToggleView.addEventListener('click', () => {
+            state.viewMode = state.viewMode === 'single' ? 'grid' : 'single';
+            updateUI();
+        });
+
+        elements.btnKeep.addEventListener('click', () => markCurrentPhoto('keep'));
+        elements.btnDelete.addEventListener('click', () => markCurrentPhoto('delete'));
+        elements.btnUndo.addEventListener('click', undoLastAction);
+
+        elements.btnNextGroup.addEventListener('click', () => {
+            const totalGroups = Math.max(...state.allPhotos.map(p => p.group));
+            let nextGrp = state.currentGroupIndex + 1;
+            if (nextGrp > totalGroups) nextGrp = 1;
+            initGroup(nextGrp);
+            showToast(`已切换至第 ${nextGrp} 组`, 'undo');
+        });
+
+        elements.btnCompare.addEventListener('click', () => {
+            if (state.viewMode === 'compareSelect') {
+                if (state.compareSelectedIds.length >= 2) {
+                    state.compareKeepIds = [];
+                    state.viewMode = 'compareView';
+                    updateUI();
+                } else {
+                    showToast('请至少选择 2 张照片', 'undo');
                 }
+            } else {
+                state.viewMode = 'compareSelect';
+                state.compareSelectedIds = [];
+                updateUI();
+            }
+        });
+
+        elements.btnCancelCompareSelect?.addEventListener('click', () => {
+            state.viewMode = 'grid';
+            state.compareSelectedIds = [];
+            updateUI();
+        });
+
+        elements.btnExitCompare?.addEventListener('click', () => {
+            state.viewMode = 'grid';
+            state.compareSelectedIds = [];
+            updateUI();
+        });
+
+        elements.btnApplyCompare?.addEventListener('click', () => {
+            state.compareSelectedIds.forEach(id => {
+                const photo = state.allPhotos.find(p => p.id === id);
+                if (photo) {
+                    photo.markedStatus = state.compareKeepIds.includes(id) ? 'keep' : 'delete';
+                }
+            });
+            showToast('对比完成，标记已更新', 'keep');
+            state.viewMode = 'grid';
+            state.compareSelectedIds = [];
+            updateUI();
+        });
+
+        elements.btnRecycleBin.addEventListener('click', openRecycleBin);
+        elements.btnCloseBin.addEventListener('click', () => elements.recycleBinModal.classList.remove('show'));
+
+        elements.btnConfirmFinalDelete.addEventListener('click', () => {
+            const deleteCount = state.allPhotos.filter(p => p.markedStatus === 'delete').length;
+            if (deleteCount === 0) {
+                showToast('回收站内暂无可清理的照片', 'undo');
+                return;
             }
 
-            $('#btnUpload').addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    importFiles(e.target.files);
-                    fileInput.value = '';
-                }
-            });
+            const totalMB = state.allPhotos
+                .filter(p => p.markedStatus === 'delete')
+                .reduce((acc, p) => acc + parseFloat(p.sizeMB), 0)
+                .toFixed(1);
 
-            $('#btnGridToggle').addEventListener('click', () => {
-                if (state.viewMode === 'viewer') {
-                    switchToGrid();
-                } else if (state.viewMode === 'grid') {
-                    switchToViewer();
-                } else if (state.viewMode === 'compare-select') {
-                    state.compareSelection = [];
-                    updateCompareSelectButton();
-                    compareSelectHint.classList.remove('show');
-                    switchToViewer();
-                }
-            });
+            state.allPhotos = state.allPhotos.filter(p => p.markedStatus !== 'delete');
+            elements.recycleBinModal.classList.remove('show');
+            
+            showToast(`已成功释放 ${totalMB} MB 存储空间!`, 'keep');
+            initGroup(state.currentGroupIndex);
+        });
 
-            $('#btnKeep').addEventListener('click', () => markCurrent('keep'));
-            $('#btnDelete').addEventListener('click', () => markCurrent('delete'));
-            $('#btnUndo').addEventListener('click', undoLast);
+        elements.btnSettings.addEventListener('click', () => elements.settingsModal.classList.add('show'));
+        elements.btnCloseSettings.addEventListener('click', () => elements.settingsModal.classList.remove('show'));
 
-            $('#btnCompare').addEventListener('click', () => {
-                if (state.viewMode === 'compare-select') {
-                    startCompare();
-                } else if (state.viewMode === 'compare') {
-                    applyCompareMarks();
-                } else {
-                    enterCompareSelect();
-                }
-            });
+        document.getElementById('sortModeSelect').addEventListener('change', (e) => {
+            state.sortMode = e.target.value;
+            initGroup(state.currentGroupIndex);
+        });
 
-            $('#btnTrash').addEventListener('click', showConfirmDelete);
+        document.getElementById('aiToggle').addEventListener('change', (e) => {
+            state.aiEnabled = e.target.checked;
+            updateUI();
+        });
 
-            $('#btnSettings').addEventListener('click', () => {
-                settingsModal.classList.add('show');
-                $$('#settingsModal .radio').forEach(r => r.classList.remove('active'));
-                if (state.sortMode === 'smart') {
-                    $$('#settingsModal .radio')[0].classList.add('active');
-                } else {
-                    $$('#settingsModal .radio')[1].classList.add('active');
-                }
-            });
-
-            $('#btnCloseSettings').addEventListener('click', () => {
-                settingsModal.classList.remove('show');
-            });
-
-            $$('#settingsModal .option').forEach(option => {
-                option.addEventListener('click', () => {
-                    const mode = option.dataset.mode;
-                    state.sortMode = mode;
-                    $$('#settingsModal .radio').forEach(r => r.classList.remove('active'));
-                    option.querySelector('.radio').classList.add('active');
-                    buildGroups();
-                    state.currentPhotoIndex = 0;
-                    switchToViewer();
-                    settingsModal.classList.remove('show');
-                    showToast(mode === 'smart' ? '已切换为智能分组' : '已切换为完全随机');
-                });
-            });
-
-            settingsModal.addEventListener('click', (e) => {
-                if (e.target === settingsModal) {
-                    settingsModal.classList.remove('show');
-                }
-            });
-
-            $('#btnCancelConfirm').addEventListener('click', () => {
-                confirmModal.classList.remove('show');
-            });
-
-            $('#btnConfirmDelete').addEventListener('click', () => {
-                const deletedIds = [...state.trashBin];
-                deletedIds.forEach(id => {
-                    const p = state.photos.find(ph => ph.id === id);
-                    if (p) { URL.revokeObjectURL(p.url); }
-                });
-                state.photos = state.photos.filter(p => !deletedIds.includes(p.id));
-                state.trashBin = [];
-                state.compareSelection = [];
-                confirmModal.classList.remove('show');
-                buildGroups();
-                state.currentPhotoIndex = 0;
-                if (state.groups.length > 0) {
-                    switchToViewer();
-                    showToast(`已清理 ${deletedIds.length} 张照片`);
-                } else {
-                    viewerContainer.classList.add('hidden');
-                    gridContainer.classList.add('hidden');
-                    uploadZone.classList.remove('hidden');
-                    groupInfo.textContent = '准备开始';
-                    showToast('所有照片已清理完毕 ✨');
-                }
-            });
-
-            confirmModal.addEventListener('click', (e) => {
-                if (e.target === confirmModal) {
-                    confirmModal.classList.remove('show');
-                }
-            });
-
-            document.addEventListener('dragover', (e) => e.preventDefault());
-            document.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (e.dataTransfer.files.length > 0) {
-                    importFiles(e.dataTransfer.files);
-                }
-            });
-
-            document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT') return;
-                switch (e.key) {
-                    case 'ArrowLeft':
-                        navigate('prev');
-                        break;
-                    case 'ArrowRight':
-                        navigate('next');
-                        break;
-                    case 'ArrowUp':
-                        markCurrent('keep');
-                        break;
-                    case 'ArrowDown':
-                        markCurrent('delete');
-                        break;
-                    case 'Backspace':
-                    case 'Delete':
-                        markCurrent('delete');
-                        break;
-                    case 'g':
-                        if (state.viewMode === 'viewer') switchToGrid();
-                        else if (state.viewMode === 'grid') switchToViewer();
-                        break;
-                    case 'c':
-                        if (state.viewMode === 'compare-select') {
-                            startCompare();
-                        } else if (state.viewMode === 'compare') {
-                            applyCompareMarks();
-                        } else {
-                            enterCompareSelect();
-                        }
-                        break;
-                    case 'z':
-                        if (e.ctrlKey || e.metaKey) {
-                            e.preventDefault();
-                            undoLast();
-                        }
-                        break;
-                    case 'Escape':
-                        if (state.viewMode === 'compare-select') {
-                            state.compareSelection = [];
-                            updateCompareSelectButton();
-                            compareSelectHint.classList.remove('show');
-                            switchToViewer();
-                        } else if (state.viewMode === 'compare') {
-                            state.compareMarks = {};
-                            enterCompareSelect();
-                            renderGrid();
-                        }
-                        break;
-                }
-            });
-
-            function init() {
-                viewerContainer.classList.add('hidden');
-                gridContainer.classList.add('hidden');
-                uploadZone.classList.remove('hidden');
-                groupInfo.textContent = '准备开始';
-                progressFill.style.width = '0%';
-            }
-
-            init();
-        })();
+        window.addEventListener('load', () => {
+            initGroup(1);
+        });
     </script>
 </body>
 </html>
